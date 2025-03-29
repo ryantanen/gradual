@@ -1,31 +1,43 @@
-from fastapi import HTTPException, status, Depends
-from fastapi.security import OAuth2AuthorizationCodeBearer
-from jose import jwt
-import requests
+from typing import Optional
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from jose import jwt, JWTError
+from pydantic import BaseModel
 import os
+from dotenv import load_dotenv
 
-# AUTHENTICATION
-AUTH0_DOMAIN = os.getenv("AUTH0_DOMAIN")
-API_AUDIENCE = os.getenv("API_AUDIENCE")
-ALGORITHMS = ["RS256"]
+load_dotenv()
 
-oauth2_scheme = OAuth2AuthorizationCodeBearer(
-    authorizationUrl=f"https://{AUTH0_DOMAIN}/authorize",
-    tokenUrl=f"https://{AUTH0_DOMAIN}/oauth/token",
-)
+class Auth0Config:
+    DOMAIN = os.getenv("AUTH0_DOMAIN")
+    API_AUDIENCE = os.getenv("AUTH0_API_AUDIENCE")
+    ALGORITHMS = ["RS256"]
 
-def get_auth0_public_key():
-    response = requests.get(f"https://{AUTH0_DOMAIN}/.well-known/jwks.json")
-    jwks = response.json()
-    return jwks
+class TokenPayload(BaseModel):
+    sub: str
+    exp: int
+    scope: Optional[str] = None
 
-async def verify_token(token: str = Depends(oauth2_scheme)):
+security = HTTPBearer()
+
+async def get_token_auth_header(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
+    """Obtains the Access Token from the Authorization Header"""
+    if credentials.scheme != "Bearer":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication scheme",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return credentials.credentials
+
+async def requires_auth(token: str = Depends(get_token_auth_header)) -> TokenPayload:
+    """Validates the JWT token and returns the payload"""
     try:
-        jwks = get_auth0_public_key()
+        jwks_url = f"https://{Auth0Config.DOMAIN}/.well-known/jwks.json"
+        jwks_client = jwt.get_unverified_header(token)
         unverified_header = jwt.get_unverified_header(token)
-        
         rsa_key = {}
-        for key in jwks["keys"]:
+        for key in jwks_client["keys"]:
             if key["kid"] == unverified_header["kid"]:
                 rsa_key = {
                     "kty": key["kty"],
@@ -34,26 +46,28 @@ async def verify_token(token: str = Depends(oauth2_scheme)):
                     "n": key["n"],
                     "e": key["e"]
                 }
-        
-        if not rsa_key:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid authentication credentials",
-            )
-        
-        # Verify the token
-        payload = jwt.decode(
-            token,
-            rsa_key,
-            algorithms=ALGORITHMS,
-            audience=API_AUDIENCE,
-            issuer=f"https://{AUTH0_DOMAIN}/"
-        )
-        
-        return payload
-    
-    except jwt.JWTError:
+        if rsa_key:
+            try:
+                payload = jwt.decode(
+                    token,
+                    rsa_key,
+                    algorithms=Auth0Config.ALGORITHMS
+                )
+                return TokenPayload(**payload)
+            except JWTError:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid token",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token",
+            detail="Unable to find appropriate key",
+            headers={"WWW-Authenticate": "Bearer"},
         )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e),
+            headers={"WWW-Authenticate": "Bearer"},
+        ) 

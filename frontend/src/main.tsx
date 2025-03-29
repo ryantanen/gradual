@@ -16,9 +16,6 @@ const router = createBrowserRouter([
     element: <Login />,
   },
 ]);
-console.log(import.meta.env.VITE_AUTH0_DOMAIN);
-console.log(import.meta.env.VITE_AUTH0_CLIENT_ID);
-console.log(import.meta.env.VITE_AUTH0_AUDIENCE);
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
@@ -26,7 +23,7 @@ createRoot(document.getElementById("root")!).render(
       domain={import.meta.env.VITE_AUTH0_DOMAIN as string}
       clientId={import.meta.env.VITE_AUTH0_CLIENT_ID as string}
       authorizationParams={{
-        redirect_uri: window.location.origin,
+        redirect_uri: "http://localhost:8000/callback",
         audience: import.meta.env.VITE_AUTH0_AUDIENCE as string,
       }}
     >
