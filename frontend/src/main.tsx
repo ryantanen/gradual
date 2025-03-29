@@ -16,6 +16,9 @@ const router = createBrowserRouter([
     element: <Login />,
   },
 ]);
+console.log(import.meta.env.VITE_AUTH0_DOMAIN);
+console.log(import.meta.env.VITE_AUTH0_CLIENT_ID);
+console.log(import.meta.env.VITE_AUTH0_AUDIENCE);
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
