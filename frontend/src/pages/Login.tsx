@@ -1,8 +1,11 @@
 import LoginButton from "@/components/ui/loginButton";
-import React from "react";
 
 function Login() {
-  return <LoginButton></LoginButton>;
+  return (
+    <div>
+      <LoginButton />
+    </div>
+  );
 }
 
 export default Login;
