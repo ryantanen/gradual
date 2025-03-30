@@ -12,13 +12,13 @@ import { useState } from 'react';
 
 const nodes = [
     { id: 'title', data: { label: 'About you.' }, position: { x: 25, y: 10 }, type: 'customLabelTitle', className: 'text-4xl font-medium' },
-    { id: '1', data: { label: 'Application', date: "1/2/23", direction: 'r', special: null }, position: { x: 250, y: 75 }, type: 'customNode', },
-    { id: '2', data: { label: 'Interview', date: "2/2/23", direction: 'r', special: null }, position: { x: 250, y: 175 }, type: 'customNode' },
-    { id: '3', data: { label: 'Job Acquired', date: "3/2/23", direction: 'r', special: null }, position: { x: 250, y: 275 }, type: 'customNode' },
-    { id: '4', data: { label: 'Promotion Already?!?', date: "4/2/23", direction: 'r', special: null }, position: { x: 250, y: 375 }, type: 'customNode' },
-    { id: '7', data: { label: 'Literally CEO', date: "5/2/23", direction: 'r', special: 'merge' }, position: { x: 250, y: 475 }, type: 'customNode' },
-    { id: '5', data: { label: 'Devise Scheme', date: "3/2/23", direction: 'l', special: 'branch' }, position: { x: 150, y: 275 }, type: 'customNode' },
-    { id: '6', data: { label: 'Commit Crimes', date: "4/2/23", direction: 'l', special: 'branch' }, position: { x: 150, y: 375 }, type: 'customNode' },
+    { id: '1', data: { label: 'Application', date: "1/2/23", info: "What do you call a dog which is a really sophisticated DAG? A DOAG!!!!! Thats's not true, but I need to fill space.", direction: 'r', special: null }, position: { x: 250, y: 75 }, type: 'customNode', },
+    { id: '2', data: { label: 'Interview', date: "2/2/23", direction: 'r', special: null, info: "Whwapkrngpiwrgpirwgpjawpjrgjrwipagt do you call a dog which is a really sophisticated DAG? A DOAG!!!!! Thats's not true, but I need to fill space." }, position: { x: 250, y: 175 }, type: 'customNode' },
+    { id: '3', data: { label: 'Job Acquired', date: "3/2/23", direction: 'r', special: null, info: "uhwreguhowrgohrehgorwohgerohigeoh er ohgroghreog erj-ig erijgjepir pijg eripj reipjneroihgreiohriohergeg" }, position: { x: 250, y: 275 }, type: 'customNode' },
+    { id: '4', data: { label: 'Promotion Already?!?', date: "4/2/23", direction: 'r', special: null, info: "OJNWrgowrnjgepjerpjheorhejpoerhpjophjoreepjohpojhrjopherjepohrjpo ngpijerpingeiprghipjerhgip" }, position: { x: 250, y: 375 }, type: 'customNode' },
+    { id: '7', data: { label: 'Literally CEO', info: "e0iuhtgh0ier gohir hiorgoh reohg erhoig hioerg hoieghoi erhio ghoeir hoiregh ioergho ieohig rhiogrho igreohi erojihgre onigreoih egreg", date: "5/2/23", direction: 'r', special: 'merge' }, position: { x: 250, y: 475 }, type: 'customNode' },
+    { id: '5', data: { label: 'Devise Scheme', info: "er0iogeriogijeorgijergijjreijpeirgjeirejipeipjgipjer ipj pije ipj gpiej pjiregipjerpij eipj ipjrg pjieg pij", date: "3/2/23", direction: 'l', special: 'branch' }, position: { x: 150, y: 275 }, type: 'customNode' },
+    { id: '6', data: { label: 'Commit Crimes', info: "reiothgi0retgj i0rwji rejpig ejipg ipje psidpij jgprepj gropj eropjg ojperg pojerpojg eproj poj ojpe gjporeopj eropj pjog jope rg pjioerjgpo eopjr jrpogg jopejgop erjpog jopregjop gejpo jergpogjp rojpgeor epj rgojge proegproj", date: "4/2/23", direction: 'l', special: 'branch' }, position: { x: 150, y: 375 }, type: 'customNode' },
 ];
 
 const edges = [
@@ -41,15 +41,17 @@ interface GraphProps {
     className?: string;
     setHeader: (arg0: string) => void;
     setInfo: (arg0: string) => void;
+    setUnderlineColor: (arg0: string) => void;
 }
 
-export default function Graph({ className, setHeader, setInfo }: GraphProps) {
+export default function Graph({ className, setHeader, setInfo, setUnderlineColor }: GraphProps) {
     const [selectedNode, setSelectedNode] = useState<string | null>(null);
 
     const onNodeClick = (event: React.MouseEvent, node: any) => {
         setSelectedNode(node.id);
-        setHeader(node.header);
-        setInfo(node.info);
+        setHeader(node.data.label);
+        setInfo(node.data.info);
+        setUnderlineColor(node.data.special === "branch" ? "decoration-green-200" : node.data.special === "merge" ? "decoration-emerald-300" : "decoration-blue-200")
     };
 
     return (
