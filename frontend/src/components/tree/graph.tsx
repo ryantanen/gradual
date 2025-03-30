@@ -15,30 +15,6 @@ import { useEffect, useState } from "react";
 import { getNodes } from "../../auth/api";
 import { useAuth } from "@/auth/AuthContext";
 
-interface GraphData {
-  branches: Array<{
-    _id: string;
-    name: string;
-    user_id: string;
-    root_node: string | null;
-  }>;
-  nodes: Array<{
-    _id: string;
-    title: string;
-    description: string;
-    parents: string[];
-    children: string[];
-    sources: Array<{
-      kind: string;
-      item: string;
-    }>;
-    branch: string;
-    user_id: string;
-    created_at: string;
-    updated_at: string;
-    root: boolean;
-  }>;
-}
 
 interface NodeData {
   id: string;
@@ -71,7 +47,7 @@ export default function Graph({
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
   const [nodes, setNodes] = useNodesState([]);
   const [edges, setEdges] = useEdgesState([]);
-  const [data, setData] = useState<GraphData | null>(null);
+  const [data, setData] = useState<any | null>(null);
   const { getAccessToken } = useAuth();
 
   useEffect(() => {
@@ -100,101 +76,133 @@ export default function Graph({
     
     console.log(data)
 
+
     let prev_node = null;
+    let level = 0;
 
-    // start w/ main branch
-    let curr_branch = data.branches.find(branch => branch.name == "branch_main")?._id;
-    const main_branch_id = curr_branch;
-    let remaining_branches = data.branches.filter(
-      (branch) => branch._id !== "branch_main"
-    );
-
-    while (true) {
-      let curr_node_id = data.branches.find(
-        (branch) => branch._id === curr_branch
-      )?.root_node;
-      if (!curr_node_id) break;
-
-      let curr_node = data.nodes.find((node) => node._id === curr_node_id);
-      console.log("OTGUH3ouhrghue", curr_node)
-      if (!curr_node) break;
-
-      prev_node = data.nodes.find((node) => node._id === curr_node.parents[0]);
-
-      // Get root node's level
-      let level =
-        curr_branch === main_branch_id || curr_branch.includes("main")
-          ? 0
-          : (nodes.find((n) => n.id === curr_node.parents[0])?.position.y ??
-              0 - 75) /
-              100 +
-            1;
-
-      while (curr_node) {
-        // console.log("ROOT", curr_node)
+    for (let node of data) {
         nodes.push({
-          position: {
-            x: curr_branch === main_branch_id || curr_branch.includes("main") ? 250 : 150,
-            y: level * 100 + 75,
-          },
-          type: "customNode",
-          id: curr_node_id,
-          data: {
-            id: curr_node._id,
-            label: curr_node.title,
-            date: new Date(curr_node.created_at).toLocaleDateString('en-US', {month: 'numeric', day: 'numeric', year: '2-digit'}),
-            info: curr_node.description,
-            direction: curr_branch ===  main_branch_id || curr_branch.includes("main") ? "r" : "l",
-            special:
-              curr_node.parents.length > 1
-                ? "merge"
-                : curr_node.branch !== main_branch_id || curr_branch.includes("main") && !curr_node.branch.includes("main")
-                ? "branch"
-                : null,
-          } as NodeData,
-        });
-
-        // make an edge b/w prev node and this one
+            position: {
+                x: 250,
+                y: level * 100 + 75,
+            },
+            type: "customNode",
+            id: node.id,
+            data: {
+                id: node.id,
+                label: node.title,
+                date: new Date(node.created_at).toLocaleDateString('en-US', {month: 'numeric', day: 'numeric', year: '2-digit'}),
+                info: node.description,
+                direction: "r",
+                special: null
+            }
+            })
         if (prev_node) {
           edges.push({
-            id: `e${prev_node._id}-${curr_node._id}`,
-            source: prev_node._id,
-            target: curr_node._id,
+            id: `e${prev_node.id}-${node.id}`,
+            source: prev_node.id,
+            target: node.id,
           });
         }
 
-        prev_node = curr_node;
-
-        curr_node_id = curr_node.children.find(
-          (child_id) =>
-            data.nodes.find((node) => node._id === child_id)?.branch ===
-            curr_branch
-        );
-
-        if (!curr_node_id && !curr_branch?.includes("branch_main")) {
-          let final_node = data.nodes.find(
-            (node) => node._id === curr_node.children[0]
-          );
-
-          if (final_node) {
-            edges.push({
-              id: `e${curr_node._id}-${final_node._id}`,
-              source: prev_node._id,
-              target: final_node._id,
-            });
-          }
-        }
-
-        curr_node = data.nodes.find((node) => node._id === curr_node_id);
-        level++;
-      }
-
-      if (remaining_branches.length <= 0) {
-        break;
-      }
-
-      curr_branch = remaining_branches.pop()?._id ?? "branch_main";
+        level += 1;
+        prev_node = node;
     }
+
+
+    // // start w/ main branch
+    // let curr_branch = data.branches.find(branch => branch.name == "branch_main")?._id;
+    // const main_branch_id = curr_branch;
+    // let remaining_branches = data.branches.filter(
+    //   (branch) => branch._id !== "branch_main"
+    // );
+
+    // while (true) {
+    //   let curr_node_id = data.branches.find(
+    //     (branch) => branch._id === curr_branch
+    //   )?.root_node;
+    //   if (!curr_node_id) break;
+
+    //   let curr_node = data.nodes.find((node) => node._id === curr_node_id);
+    //   console.log("OTGUH3ouhrghue", curr_node)
+    //   if (!curr_node) break;
+
+    //   prev_node = data.nodes.find((node) => node._id === curr_node.parents[0]);
+
+    //   // Get root node's level
+    //   let level =
+    //     curr_branch === main_branch_id || curr_branch.includes("main")
+    //       ? 0
+    //       : (nodes.find((n) => n.id === curr_node.parents[0])?.position.y ??
+    //           0 - 75) /
+    //           100 +
+    //         1;
+
+    //   while (curr_node) {
+    //     // console.log("ROOT", curr_node)
+    //     nodes.push({
+    //       position: {
+    //         x: curr_branch === main_branch_id || curr_branch.includes("main") ? 250 : 150,
+    //         y: level * 100 + 75,
+    //       },
+    //       type: "customNode",
+    //       id: curr_node_id,
+    //       data: {
+    //         id: curr_node._id,
+    //         label: curr_node.title,
+    //         date: new Date(curr_node.created_at).toLocaleDateString('en-US', {month: 'numeric', day: 'numeric', year: '2-digit'}),
+    //         info: curr_node.description,
+    //         direction: curr_branch ===  main_branch_id || curr_branch.includes("main") ? "r" : "l",
+    //         special:
+    //           curr_node.parents.length > 1
+    //             ? "merge"
+    //             : curr_node.branch !== main_branch_id || curr_branch.includes("main") && !curr_node.branch.includes("main")
+    //             ? "branch"
+    //             : null,
+    //       } as NodeData,
+    //     });
+
+    //     // make an edge b/w prev node and this one
+    //     if (prev_node) {
+    //       edges.push({
+    //         id: `e${prev_node._id}-${curr_node._id}`,
+    //         source: prev_node._id,
+    //         target: curr_node._id,
+    //       });
+    //     }
+
+    //     prev_node = curr_node;
+
+    //     curr_node_id = curr_node.children.find(
+    //       (child_id) =>
+    //         data.nodes.find((node) => node._id === child_id)?.branch ===
+    //         curr_branch
+    //     );
+
+    //     if (!curr_node_id && !curr_branch?.includes("branch_main")) {
+    //       let final_node = data.nodes.find(
+    //         (node) => node._id === curr_node.children[0]
+    //       );
+
+    //       if (final_node) {
+    //         edges.push({
+    //           id: `e${curr_node._id}-${final_node._id}`,
+    //           source: prev_node._id,
+    //           target: final_node._id,
+    //         });
+    //       }
+    //     }
+
+    //     curr_node = data.nodes.find((node) => node._id === curr_node_id);
+    //     level++;
+    //   }
+
+    //   if (remaining_branches.length <= 0) {
+    //     break;
+    //   }
+
+    //   curr_branch = remaining_branches.pop()?._id ?? "branch_main";
+    // }
 
     setNodes(nodes);
     setEdges(edges);
