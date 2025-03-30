@@ -89,6 +89,7 @@ async def process_ai_response(response: str, user_id: str):
         
         # Process new branches with the new node IDs
         new_branches = []
+        main_branch_id = None
         if "branches" in data:
             for branch_data in data["branches"]:
                 # Handle root_node field - must use the MongoDB ID
@@ -121,6 +122,11 @@ async def process_ai_response(response: str, user_id: str):
                     new_branches.append(branch_id)
                     logger.info(f"Created new branch: {branch_data['name']} with root_node: {real_root_node_id}")
                     
+                    # Store main branch ID for later use with temp_branch_main references
+                    if branch_data["name"] == "branch_main":
+                        main_branch_id = branch_id
+                        logger.info(f"Stored main branch ID: {main_branch_id}")
+                    
                     # Update any nodes that reference this branch by name
                     for node_data in data.get("nodes", []):
                         if node_data.get("branch") == branch_data["name"] and node_data.get("_id") in node_relationships:
@@ -134,6 +140,11 @@ async def process_ai_response(response: str, user_id: str):
                     branch_id = str(existing_branch["_id"])
                     new_branches.append(branch_id)
                     
+                    # Store main branch ID for later use with temp_branch_main references
+                    if branch_data["name"] == "branch_main":
+                        main_branch_id = branch_id
+                        logger.info(f"Stored existing main branch ID: {main_branch_id}")
+                    
                     # If an existing branch has no root_node, update it
                     if not existing_branch.get("root_node") and real_root_node_id:
                         await branches.update_one(
@@ -141,6 +152,27 @@ async def process_ai_response(response: str, user_id: str):
                             {"$set": {"root_node": real_root_node_id}}
                         )
                         logger.info(f"Updated existing branch {branch_id} with root_node: {real_root_node_id}")
+        
+        # If we didn't find or create a main branch in the response, try to fetch it from DB
+        if not main_branch_id:
+            main_branch = await branches.find_one({
+                "name": "branch_main",
+                "user_id": user_id
+            })
+            if main_branch:
+                main_branch_id = str(main_branch["_id"])
+                logger.info(f"Found existing main branch ID from database: {main_branch_id}")
+        
+        # Update any nodes with temp_branch_main reference
+        if main_branch_id:
+            for node_id in new_nodes:
+                node = await nodes.find_one({"_id": ObjectId(node_id)})
+                if node and (node.get("branch") == "temp_branch_main" or not node.get("branch")):
+                    await nodes.update_one(
+                        {"_id": ObjectId(node_id)},
+                        {"$set": {"branch": main_branch_id}}
+                    )
+                    logger.info(f"Updated node {node_id} from temp_branch_main to actual branch ID: {main_branch_id}")
             
             # Second pass: Update relationships with MongoDB IDs
             for node_data in data["nodes"]:
@@ -278,13 +310,15 @@ CRITICAL REQUIREMENTS FOR NODE RELATIONSHIPS:
     3. All other nodes have both parents and children
     4. Relationships are bidirectional
     5. Each branch has a valid root_node
-    6. At most 2 parents.
+    6. VERY IMPORTANT!!! At most 2 parents.
+ 
+IMPORTANT NOTE: When specifying a branch for a node, always use "branch_main" as the branch name, NOT "temp_branch_main".
 
 Here is an example of a graph with proper relationships:
  {
   "branches": [
     {
-      "name": "Main Project",
+      "name": "branch_main",
       "user_id": "user_123",
       "root_node": "node_1"
     }
@@ -295,9 +329,8 @@ Here is an example of a graph with proper relationships:
       "title": "Introduction",
       "description": "Overview of the project",
       "branch": "branch_main",
-      "parents": ["existing_node_123"],  // Connected to existing node
-      "children": ["temp_node_2"],       // Connected to new node
-      "sources": [{ "kind": "pdf", "item": "pdf_001" }],
+      "parents": ["existing_node_123"],
+      "children": ["temp_node_2"],
       "occured_at": "2025-03-20T08:00:00Z",
       "created_at": "2025-03-20T10:15:00Z"
     },
@@ -307,9 +340,8 @@ Here is an example of a graph with proper relationships:
       "description": "Defining the core problem",
       "user_id": "user_123",
       "branch": "branch_main",
-      "parents": ["temp_node_1"],         // Connected to previous node
-      "children": ["temp_node_3"],        // Connected to next node
-      "sources": [{ "kind": "email", "item": "email_002" }],
+      "parents": ["temp_node_1"],
+      "children": null,
       "created_at": "2025-03-21T09:30:00Z",
       "updated_at": "2025-03-21T12:00:00Z"
     }
