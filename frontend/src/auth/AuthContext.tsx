@@ -31,6 +31,35 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const isInitialized = useRef(false);
 
+  // Function to refresh the access token
+  const refreshAccessToken = async () => {
+    try {
+      const refreshToken = localStorage.getItem("refresh_token");
+      if (!refreshToken) return null;
+
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/refresh`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to refresh token");
+      }
+
+      const data = await response.json();
+      localStorage.setItem("access_token", data.access_token);
+      setAccessToken(data.access_token);
+      return data.access_token;
+    } catch (error) {
+      console.error("Error refreshing token:", error);
+      logout();
+      return null;
+    }
+  };
+
   // Function to check if token is valid
   const checkTokenValidity = async (token: string) => {
     try {
@@ -39,8 +68,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           Authorization: `Bearer ${token}`,
         },
       });
-      console.log("Token validation response:", response);
       if (!response.ok) {
+        // Try to refresh the token if validation fails
+        const newToken = await refreshAccessToken();
+        if (newToken) {
+          return true;
+        }
         throw new Error("Token validation failed");
       }
       return true;
@@ -64,6 +97,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         } else {
           // Token is invalid, clear it
           localStorage.removeItem("access_token");
+          localStorage.removeItem("refresh_token");
           setAccessToken(null);
         }
       }
@@ -89,6 +123,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = () => {
     localStorage.removeItem("access_token");
+    localStorage.removeItem("refresh_token");
     localStorage.removeItem("user_info");
     setAccessToken(null);
   };
@@ -108,6 +143,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   // Compute isAuthenticated based on localStorage
   const isAuthenticated = !!localStorage.getItem("access_token");
+
   const getUser = async () => {
     const response = await fetch(`${import.meta.env.VITE_API_URL}/me`, {
       headers: {
@@ -116,6 +152,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
     return response.json();
   };
+
   return (
     <AuthContext.Provider
       value={{

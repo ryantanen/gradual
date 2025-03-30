@@ -5,17 +5,23 @@ import requests
 from dotenv import load_dotenv
 load_dotenv()
 import os
+import motor
 from jose import jwt, JWTError
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timedelta
+from bson import ObjectId
+from .db import init_db, users, User
 
 # CORS configuration
 origins = [
     "*"
 ]
 
-
 app = FastAPI()
+
+@app.on_event("startup")
+async def startup_event():
+    await init_db()
 
 # Add CORS middleware
 app.add_middleware(
@@ -48,7 +54,7 @@ def create_access_token(data: dict):
 @app.get("/login/google")
 async def login_google():
     return RedirectResponse(
-        f"https://accounts.google.com/o/oauth2/auth?response_type=code&client_id={GOOGLE_CLIENT_ID}&redirect_uri={GOOGLE_REDIRECT_URI}&scope=openid%20profile%20email&access_type=offline"
+        f"https://accounts.google.com/o/oauth2/auth?response_type=code&client_id={GOOGLE_CLIENT_ID}&redirect_uri={GOOGLE_REDIRECT_URI}&scope=openid%20profile%20email%20https://www.googleapis.com/auth/gmail.readonly%20https://www.googleapis.com/auth/calendar.readonly&access_type=offline"
     )
 
 @app.get("/auth/google")
@@ -62,13 +68,43 @@ async def auth_google(code: str):
         "grant_type": "authorization_code",
     }
     response = requests.post(token_url, data=data)
-    access_token = response.json().get("access_token")
+    token_data = response.json()
+    access_token = token_data.get("access_token")
+    refresh_token = token_data.get("refresh_token")
+    print(token_data)
+    
     user_info = requests.get("https://www.googleapis.com/oauth2/v1/userinfo", headers={"Authorization": f"Bearer {access_token}"})
     user_data = user_info.json()
     
+    # Check if user exists in database
+    existing_user = await users.find_one({"email": user_data.get("email")})
+    
+    if existing_user:
+        # Update existing user's tokens
+        await users.update_one(
+            {"email": user_data.get("email")},
+            {
+                "$set": {
+                    "google_token": access_token
+                }
+            }
+        )
+        user_id = str(existing_user["_id"])
+    else:
+        # Create new user
+        new_user = User(
+            name=user_data.get("name"),
+            email=user_data.get("email"),
+            access_token=access_token,
+            google_token=refresh_token
+        )
+        result = await users.insert_one(new_user.model_dump())
+        user_id = str(result.inserted_id)
+    
     # Create our own JWT token
     jwt_token = create_access_token({
-        "sub": user_data.get("email"),
+        "sub": user_id,
+        "email": user_data.get("email"),
         "name": user_data.get("name"),
         "picture": user_data.get("picture")
     })
@@ -83,9 +119,17 @@ async def get_token(token: str = Depends(oauth2_scheme)):
     return jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
 
 @app.get("/me")
-def get_current_user(token: str = Depends(oauth2_scheme)):
+async def get_current_user(token: str = Depends(oauth2_scheme)):
     payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-    return payload
+    user_id = payload.get("sub")
+    print(user_id)
+    user = await users.find_one({"_id": ObjectId(user_id)})
+    if user:
+        # Convert MongoDB document to dict and handle ObjectId
+        user_dict = dict(user)
+        user_dict["_id"] = str(user_dict["_id"])  # Convert ObjectId to string
+        return user_dict
+    return None
 
 @app.get("/protected")
 async def protected_route(current_user: dict = Depends(get_current_user)):
@@ -94,8 +138,6 @@ async def protected_route(current_user: dict = Depends(get_current_user)):
         "user": current_user
     }
 
-
 if __name__ == "__main__":
     import uvicorn
-
     uvicorn.run(app, host="0.0.0.0", port=8000)

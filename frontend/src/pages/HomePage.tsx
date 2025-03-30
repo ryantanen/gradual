@@ -22,10 +22,7 @@ export const HomePage = () => {
         <p className="text-base-content/70">
           This is your protected home page. Add your content here.
           {JSON.stringify(user)}
-          <button
-            onClick={logout}
-            className="ml-4 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
-          >
+          <button onClick={logout} className="btn btn-error">
             Logout
           </button>
         </p>
