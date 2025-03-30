@@ -1,18 +1,20 @@
 interface Node {
-  _id: string;
+  _id?: string;
   title: string;
   description: string;
-  parents: string[];
-  children: string[];
-  sources: {
+  sources?: {
     kind: string;
     item: string;
   }[];
-  branch: string;
-  user_id: string;
-  created_at: string;
-  updated_at: string;
-  root: boolean;
+}
+
+interface Branch {
+  name: string;
+  nodes: Node[];
+}
+
+interface BranchedNodeResponse {
+  branches: Branch[];
 }
 
 interface GraphData {
@@ -25,9 +27,15 @@ interface GraphData {
   nodes: Node[];
 }
 
-export const doSync = () => {};
+export const doSync = async (accessToken: string): Promise<void> => {
+  await fetch(`${import.meta.env.VITE_API_URL}/begin-ai`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+};
 
-export const getNodes = async (accessToken: string): Promise<any> => {
+export const getNodes = async (accessToken: string): Promise<GraphData> => {
   const response = await fetch(`${import.meta.env.VITE_API_URL}/nodes`, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -35,6 +43,23 @@ export const getNodes = async (accessToken: string): Promise<any> => {
   });
   if (!response.ok) {
     throw new Error("Failed to fetch nodes");
+  }
+  return response.json();
+};
+
+export const generateAINodes = async (
+  accessToken: string
+): Promise<BranchedNodeResponse> => {
+  const response = await fetch(
+    `${import.meta.env.VITE_API_URL}/generate-ai-nodes`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    }
+  );
+  if (!response.ok) {
+    throw new Error("Failed to generate AI nodes");
   }
   return response.json();
 };

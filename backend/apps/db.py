@@ -80,6 +80,7 @@ class GoogleData(BaseModel):
 class User(BaseModel):
     name: str
     email: str
+    nodes_tmp: Optional[List[Any]] = []
     google_data: Optional[Dict[str, Any]] = None
     google_token: Optional[str] = None
 
@@ -105,6 +106,8 @@ class Node(BaseMongoModel):
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     root: Optional[bool] = False
+
+
 
 async def init_db():
     """Initialize database collections and indexes"""
