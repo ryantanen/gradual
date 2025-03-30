@@ -4,7 +4,7 @@ const LoginButton = () => {
 
   return (
     <button className="btn btn-primary" onClick={() => loginWithRedirect()}>
-      Button
+      
     </button>
   );
 };

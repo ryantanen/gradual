@@ -5,7 +5,7 @@ import "./index.css";
 import App from "./App.tsx";
 import { Auth0Provider } from "@auth0/auth0-react";
 import Login from "./pages/Login";
-
+import MyTree from "./pages/MyTree";
 const router = createBrowserRouter([
   {
     path: "/",
@@ -14,6 +14,10 @@ const router = createBrowserRouter([
   {
     path: "/login",
     element: <Login />,
+  },
+  {
+    path: "/mytree",
+    element: <MyTree />,
   },
 ]);
 console.log(import.meta.env.VITE_AUTH0_DOMAIN);
