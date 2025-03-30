@@ -100,6 +100,10 @@ class Node(BaseMongoModel):
     title: Optional[str] = None
     description: Optional[str] = None
     branch: str
+    occurred_at: Optional[datetime] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    root: Optional[bool] = False
 
 async def init_db():
     """Initialize database collections and indexes"""
