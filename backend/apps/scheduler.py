@@ -24,8 +24,8 @@ async def sync_user_data(user_id: str, access_token: str):
         # Sync emails
         try:
             logger.info(f"Starting email sync for user {user_id}")
-            # sync_results["emails"] = await sync_emails(access_token, user_id, 100)
-            # logger.info(f"Completed email sync: {sync_results['emails']} emails")
+            sync_results["emails"] = await sync_emails(access_token, user_id, 100)
+            logger.info(f"Completed email sync: {sync_results['emails']} emails")
         except Exception as e:
             sync_results["status"] = "partial"
             sync_results["email_error"] = str(e)
