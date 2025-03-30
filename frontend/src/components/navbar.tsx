@@ -1,14 +1,27 @@
 import { useAuth } from "@/auth/AuthContext";
 
 const Navbar = () => {
-  const { user, isLoading, logout } = useAuth();
+  const { user, isLoading, logout, getAccessToken } = useAuth();
+
+  const fetchAIData = async () => {
+    const token = await getAccessToken();
+    const response = await fetch(`${import.meta.env.VITE_API_URL}/run-ai`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    if (!response.ok) throw new Error('Failed to fetch AI data');
+    return response.json();
+  };
 
   return (
     <div className="navbar bg-accent-content shadow-sm text-base-200">
       <div className="flex-1">
         <a className="btn btn-ghost text-3xl">Gradual.</a>
       </div>
-      <button className="btn mx-5">Share Timeline</button>
+      <button className="btn mx-5" onClick={() => fetchAIData().then((res) => {
+        console.log("Done")
+      })}>Sync Data</button>
       <div className="flex-none">
         <div className="dropdown dropdown-end">
           <div

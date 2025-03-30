@@ -12,6 +12,7 @@ import { useState } from "react";
 function MyTree() {
     const [bigHeader, setBigHeader] = useState<any>("In summary");
     const [smallInfo, setSmallInfo] = useState<any>("You, Willard Sun are a guy and that is very cool. You, Willard Sun are a guy and that is very cool. You, Willard Sun are a guy and that is very cool. You, Willard Sun are a guy and that is very cool.");
+    const [underlineColor, setUnderlineColor] = useState<any>("decoration-black-100")
 
     return (
         <>
@@ -46,16 +47,18 @@ function MyTree() {
             </dialog>
 
             <div className="h-[calc(100vh-64px)] w-screen flex">
-                <Graph className="flex-7" setHeader={setBigHeader} setInfo={setSmallInfo} />
+                <Graph className="flex-7" setHeader={setBigHeader} setInfo={setSmallInfo} setUnderlineColor={setUnderlineColor} />
                 <div className="flex-3 border-l border-gray-300  overflow-y-scroll">
-                    <div className="px-6 py-5">
-                        <h1 className="text-3xl pb-5 font-semibold">
+                    <div className="px-6 py-5 min-h-50">
+                        <h1 className={`text-3xl pb-5 font-semibold underline ${underlineColor}`}>
                             {bigHeader}
                         </h1>
                         <p>
                             {smallInfo}
                         </p>
                     </div>
+                    <div className="divider">SELECTED MOMENT</div>
+
                     <div className="px-6 py-5">
                         <h1 className="text-3xl pb-5 font-semibold">
                             What we're working with
