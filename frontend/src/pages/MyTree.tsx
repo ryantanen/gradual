@@ -3,7 +3,7 @@ import Graph from "../components/tree/graph";
 import { HiMail } from "react-icons/hi";
 import { BsCalendarEvent } from "react-icons/bs";
 import { IoDocumentTextOutline } from "react-icons/io5";
-import { useState, FormEvent } from "react";
+import { useState, FormEvent, useEffect } from "react";
 
 import gcal from "../assets/gcal.png";
 import gmail from "../assets/gmail.png";
@@ -23,6 +23,46 @@ function MyTree() {
     //   if (!response.ok) throw new Error('Failed to fetch AI data');
     //   return response.json();
     // };
+
+    const [emailCount, setEmailCount] = useState(0);
+    const [pdfCount, setPdfCount] = useState(0);
+    const [eventCount, setEventCount] = useState(0);
+
+    const fetchCounts = async () => {
+        const token = await getAccessToken();
+
+        const emailsResponse = await fetch(`${import.meta.env.VITE_API_URL}/emails/count`, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        });
+        const emailsData = await emailsResponse.json();
+        setEmailCount(emailsData.total);
+
+        const pdfResponse = await fetch(`${import.meta.env.VITE_API_URL}/pdfs/count`, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        });
+        const pdfData = await pdfResponse.json();
+        setPdfCount(pdfData.total);
+
+        const eventResponse = await fetch(`${import.meta.env.VITE_API_URL}/events/count`, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        });
+        const eventData = await eventResponse.json();
+        setEventCount(eventData.total);
+
+        console.log(emailsData.total, pdfData.total, eventData.total)
+    }
+
+    
+
+    useEffect(() => {
+        fetchCounts()
+    }, [])
 
     const [bigHeader, setBigHeader] = useState<any>("Explore your life");
     const [smallInfo, setSmallInfo] = useState<any>("Feel free to click on any moment and learn more about what makes you you.");
@@ -119,7 +159,7 @@ function MyTree() {
                 <Graph className="flex-7" setHeader={setBigHeader} setInfo={setSmallInfo} setUnderlineColor={setUnderlineColor} />
                 <div className="flex-3 border-l border-gray-300  overflow-y-scroll">
                     <div className="px-6 py-5 min-h-50">
-                        <h1 className={`text-3xl pb-5 font-semibold underline ${underlineColor}`}>
+                        <h1 className={`text-3xl pb-5 font-semibold  ${underlineColor}`}>
                             {bigHeader}
                         </h1>
                         <p>
@@ -138,7 +178,7 @@ function MyTree() {
                                     <HiMail className="text-red-600 text-xl" />
                                 </div>
                                 <div>
-                                    <span className="font-semibold">25,000</span> emails
+                                    <span className="font-semibold">{emailCount}</span> emails
                                 </div>
                             </div>
                             <div className="flex items-center gap-3">
@@ -146,7 +186,7 @@ function MyTree() {
                                     <BsCalendarEvent className="text-blue-600 text-xl" />
                                 </div>
                                 <div>
-                                    <span className="font-semibold">1,050</span> calendar events
+                                    <span className="font-semibold">{eventCount}</span> calendar events
                                 </div>
                             </div>
                             <div className="flex items-center gap-3">
@@ -154,7 +194,7 @@ function MyTree() {
                                     <IoDocumentTextOutline className="text-gray-600 text-xl" />
                                 </div>
                                 <div>
-                                    <span className="font-semibold">100</span> uploaded documents
+                                    <span className="font-semibold">{pdfCount}</span> uploaded documents
                                 </div>
                             </div>
                         </div>
