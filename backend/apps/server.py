@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks
 from fastapi.security import OAuth2PasswordBearer
 from fastapi.responses import RedirectResponse
 import requests
@@ -11,6 +11,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timedelta
 from bson import ObjectId
 from .db import init_db, users, User
+from .email import router as email_router, sync_emails
+from .scheduler import sync_user_data
+from .auth import get_current_user, create_access_token, oauth2_scheme
+from .events import sync_events
+import logging
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 # CORS configuration
 origins = [
@@ -32,24 +40,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+# Include email router
+app.include_router(email_router)
 
 # Replace these with your own values from the Google Developer Console
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
 GOOGLE_REDIRECT_URI = "http://localhost:5173/token"
-
-# JWT configuration
-JWT_SECRET = os.getenv("JWT_SECRET", GOOGLE_CLIENT_SECRET)  # Fallback to Google client secret if not set
-JWT_ALGORITHM = "HS256"
-JWT_EXPIRATION_MINUTES = 60 * 24  # 24 hours
-
-def create_access_token(data: dict):
-    to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(minutes=JWT_EXPIRATION_MINUTES)
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALGORITHM)
-    return encoded_jwt
 
 @app.get("/login/google")
 async def login_google():
@@ -117,20 +114,25 @@ async def auth_google(code: str):
 
 @app.get("/token")
 async def get_token(token: str = Depends(oauth2_scheme)):
-    return jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+    return jwt.decode(token, os.getenv("JWT_SECRET", GOOGLE_CLIENT_SECRET), algorithms=["HS256"])
 
 @app.get("/me")
-async def get_current_user(token: str = Depends(oauth2_scheme)):
-    payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-    user_id = payload.get("sub")
-    print(user_id)
-    user = await users.find_one({"_id": ObjectId(user_id)})
-    if user:
-        # Convert MongoDB document to dict and handle ObjectId
-        user_dict = dict(user)
-        user_dict["_id"] = str(user_dict["_id"])  # Convert ObjectId to string
-        return user_dict
-    return None
+async def get_me(current_user: dict = Depends(get_current_user)):
+    return current_user
+
+@app.get("/begin-ai")
+async def start(background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_user)):
+    """Start a sync process for the current user"""
+    if not current_user.get("google_token"):
+        raise HTTPException(status_code=400, detail="No Google token found. Please login with Google first.")
+    
+    # Add sync task to background tasks
+    background_tasks.add_task(sync_user_data, current_user["_id"], current_user["google_token"])
+    
+    return {
+        "message": "Sync process started",
+        "status": "processing"
+    }
 
 @app.get("/protected")
 async def protected_route(current_user: dict = Depends(get_current_user)):

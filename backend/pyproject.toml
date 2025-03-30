@@ -5,6 +5,7 @@ description = "Gradual API: Remember what you did yesterday"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "apscheduler>=3.11.0",
     "authlib>=1.5.1",
     "fastapi[standard]>=0.115.12",
     "flask-cors>=4.0.0",

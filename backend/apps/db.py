@@ -2,8 +2,14 @@ from motor import motor_asyncio
 import os
 from typing import Annotated
 from pydantic import BeforeValidator
+from motor.motor_asyncio import AsyncIOMotorClient
+from pydantic import BaseModel
+from typing import Optional, Dict, Any
+from dotenv import load_dotenv
 
-client = motor_asyncio.AsyncIOMotorClient(os.getenv("MONGODB_URL"))
+load_dotenv()
+
+client = AsyncIOMotorClient(os.getenv("MONGODB_URL"))
 db = client.get_database("production")
 PyObjectId = Annotated[str, BeforeValidator(str)]
 
@@ -34,6 +40,7 @@ class Email(BaseMongoModel):
     url: Optional[str] = None
     is_starred: bool = False
     user_id: str
+    content_hash: Optional[str] = None  # Hash of email content to prevent duplicates
 
 class PDF(BaseMongoModel):
     filename: Optional[str] = None
@@ -70,10 +77,10 @@ class GoogleData(BaseModel):
     email_verified: Optional[bool] = None
     locale: Optional[str] = None
 
-class User(BaseMongoModel):
-    name: Optional[str] = None
-    email: Optional[str] = None
-    google_data: Optional[GoogleData] = None
+class User(BaseModel):
+    name: str
+    email: str
+    google_data: Optional[Dict[str, Any]] = None
     google_token: Optional[str] = None
 
 class Branch(BaseMongoModel):
@@ -95,38 +102,27 @@ class Node(BaseMongoModel):
     branch: str
 
 async def init_db():
-    """Initialize database with necessary indexes"""
-    # Users collection indexes
+    """Initialize database collections and indexes"""
+    # Create indexes for users collection
     await users.create_index("email", unique=True)
     
-    # Emails collection indexes
+    # Create indexes for emails collection
+    await emails.create_index("content_hash")
     await emails.create_index("user_id")
     await emails.create_index("datetime")
-    await emails.create_index("is_starred")
+
+async def drop_all_collections():
+    """Drop all collections except users for development purposes"""
+    collections_to_drop = [
+        emails,
+        pdfs,
+        photos,
+        calendars,
+        contacts,
+        branches,
+        nodes
+    ]
     
-    # PDFs collection indexes
-    await pdfs.create_index("user_id")
-    await pdfs.create_index("title")
-    
-    # Photos collection indexes
-    await photos.create_index("user_id")
-    await photos.create_index("datetime")
-    
-    # Calendars collection indexes
-    await calendars.create_index("user_id")
-    await calendars.create_index("datetime_start")
-    await calendars.create_index("datetime_end")
-    
-    # Contacts collection indexes
-    await contacts.create_index("user_id")
-    await contacts.create_index("email")
-    
-    # Branches collection indexes
-    await branches.create_index("user_id")
-    
-    # Nodes collection indexes
-    await nodes.create_index("user_id")
-    await nodes.create_index("branch")
-    await nodes.create_index("parents")
-    await nodes.create_index("children")
+    for collection in collections_to_drop:
+        await collection.drop()
 
