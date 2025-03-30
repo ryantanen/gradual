@@ -15,6 +15,7 @@ from .email import router as email_router, sync_emails
 from .scheduler import sync_user_data
 from .auth import get_current_user, create_access_token, oauth2_scheme
 from .events import sync_events
+from .ai import validate_and_clean_node_graph
 import logging
 
 # Configure logging
@@ -143,7 +144,60 @@ async def protected_route(current_user: dict = Depends(get_current_user)):
 
 @app.get("/nodes")
 async def get_nodes(current_user: dict = Depends(get_current_user)):
-    return await nodes.find({"user_id": current_user["_id"]}).to_list(None)
+    # Get all branches for the user
+    branches_list = await branches.find({"user_id": str(current_user["_id"])}).to_list(None)
+    
+    # Get all nodes for the user
+    nodes_list = await nodes.find({"user_id": str(current_user["_id"])}).to_list(None)
+    
+    # Convert ObjectIds to strings and format branches
+    formatted_branches = []
+    for branch in branches_list:
+        formatted_branch = {
+            "_id": str(branch["_id"]),
+            "name": branch["name"],
+            "user_id": str(branch["user_id"]),
+            "root_node": branch.get("root_node", None)
+        }
+        formatted_branches.append(formatted_branch)
+    
+    # Convert ObjectIds to strings and format nodes
+    formatted_nodes = []
+    now = datetime.utcnow()
+    for node in nodes_list:
+        created_at = node.get("created_at")
+        updated_at = node.get("updated_at")
+        
+        formatted_node = {
+            "_id": str(node["_id"]),
+            "title": node.get("title", ""),
+            "description": node.get("description", ""),
+            "user_id": str(node["user_id"]),
+            "branch": str(node["branch"]),
+            "parents": node.get("parents", []),
+            "children": node.get("children", []),
+            "sources": node.get("sources", []),
+            "created_at": (created_at if created_at else now).isoformat(),
+            "updated_at": (updated_at if updated_at else now).isoformat(),
+            "root": node.get("root", False)
+        }
+        formatted_nodes.append(formatted_node)
+    
+    graph_data = {
+        "branches": formatted_branches,
+        "nodes": formatted_nodes
+    }
+    
+    try:
+        # Clean up the graph using AI
+        cleaned_graph = await validate_and_clean_node_graph(graph_data)
+        print(cleaned_graph)
+        return cleaned_graph
+        
+    except Exception as e:
+        logger.error(f"Error in graph validation: {e}")
+        # Return original data if validation fails
+        return graph_data
 
 @app.get("/node/{node_id}")
 async def get_node(node_id: str, current_user: dict = Depends(get_current_user)):
@@ -152,11 +206,15 @@ async def get_node(node_id: str, current_user: dict = Depends(get_current_user))
 @app.post("/add-node")
 async def add_node(node_data: dict, current_user: dict = Depends(get_current_user)):
     # just push it to the end of main branch latest
+    main_branch = await branches.find_one({"name": "Main Branch"})
+    if not main_branch:
+        raise HTTPException(status_code=404, detail="Main branch not found")
+        
     node = {
         "description": node_data.get("description"),
         "time": datetime.now(),
-        "branch": branches.find_one({"name": "Main Branch"})["_id"],
-        "user_id": current_user["_id"],
+        "branch": str(main_branch["_id"]),  # Convert ObjectId to string
+        "user_id": str(current_user["_id"]),  # Convert ObjectId to string
         "parents": [],
         "children": [],
         "sources": []

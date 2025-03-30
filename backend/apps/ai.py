@@ -48,31 +48,10 @@ async def process_ai_response(response: str, user_id: str):
             logger.info("AI indicated no new nodes needed")
             return {"status": "done", "message": "No new nodes needed"}
         
-        # Process new branches
-        new_branches = []
-        if "branches" in data:
-            for branch_data in data["branches"]:
-                # Check if branch already exists by name
-                existing_branch = await branches.find_one({
-                    "name": branch_data["name"],
-                    "user_id": user_id
-                })
-                
-                if not existing_branch:
-                    branch = Branch(
-                        name=branch_data["name"],
-                        user_id=user_id
-                    )
-                    result = await branches.insert_one(branch.model_dump())
-                    new_branches.append(str(result.inserted_id))
-                    logger.info(f"Created new branch: {branch_data['name']}")
-                else:
-                    new_branches.append(str(existing_branch["_id"]))
-        
-        # Process new nodes
+        # First pass: Create all nodes and store their mappings
         new_nodes = []
         node_relationships = {}  # Maps AI's temporary IDs to MongoDB IDs
-        
+    
         if "nodes" in data:
             # First pass: Create all nodes without relationships
             for node_data in data["nodes"]:
@@ -106,7 +85,62 @@ async def process_ai_response(response: str, user_id: str):
                 if "_id" in node_data:
                     node_relationships[node_data["_id"]] = node_id
                 
-                logger.info(f"Created new node: {node_data.get('title', 'Untitled')}")
+                logger.info(f"Created new node: {node_data.get('title', 'Untitled')} with ID: {node_id}")
+        
+        # Process new branches with the new node IDs
+        new_branches = []
+        if "branches" in data:
+            for branch_data in data["branches"]:
+                # Handle root_node field - must use the MongoDB ID
+                root_node_temp_id = branch_data.get("root_node")
+                real_root_node_id = None
+                
+                # If root_node is a temporary ID, use our mapping
+                if root_node_temp_id and root_node_temp_id in node_relationships:
+                    real_root_node_id = node_relationships[root_node_temp_id]
+                    logger.info(f"Mapped temporary root_node ID {root_node_temp_id} to real ID {real_root_node_id}")
+                # If no root_node specified or mapping not found, use the first node we created
+                elif new_nodes:
+                    real_root_node_id = new_nodes[0]
+                    logger.info(f"Using first node as root_node: {real_root_node_id}")
+                
+                # Check if branch already exists by name
+                existing_branch = await branches.find_one({
+                    "name": branch_data["name"],
+                    "user_id": user_id
+                })
+                
+                if not existing_branch:
+                    branch = Branch(
+                        name=branch_data["name"],
+                        user_id=user_id,
+                        root_node=real_root_node_id  # Use the real MongoDB ID
+                    )
+                    result = await branches.insert_one(branch.model_dump())
+                    branch_id = str(result.inserted_id)
+                    new_branches.append(branch_id)
+                    logger.info(f"Created new branch: {branch_data['name']} with root_node: {real_root_node_id}")
+                    
+                    # Update any nodes that reference this branch by name
+                    for node_data in data.get("nodes", []):
+                        if node_data.get("branch") == branch_data["name"] and node_data.get("_id") in node_relationships:
+                            node_mongo_id = node_relationships[node_data["_id"]]
+                            await nodes.update_one(
+                                {"_id": ObjectId(node_mongo_id)},
+                                {"$set": {"branch": branch_id}}
+                            )
+                            logger.info(f"Updated node {node_mongo_id} with branch ID: {branch_id}")
+                else:
+                    branch_id = str(existing_branch["_id"])
+                    new_branches.append(branch_id)
+                    
+                    # If an existing branch has no root_node, update it
+                    if not existing_branch.get("root_node") and real_root_node_id:
+                        await branches.update_one(
+                            {"_id": existing_branch["_id"]},
+                            {"$set": {"root_node": real_root_node_id}}
+                        )
+                        logger.info(f"Updated existing branch {branch_id} with root_node: {real_root_node_id}")
             
             # Second pass: Update relationships with MongoDB IDs
             for node_data in data["nodes"]:
@@ -116,14 +150,44 @@ async def process_ai_response(response: str, user_id: str):
                     # Convert parent IDs
                     parents = []
                     for parent_id in node_data.get("parents", []):
+                        # Check if parent is a new node (in node_relationships) or an existing node
                         if parent_id in node_relationships:
-                            parents.append(node_relationships[parent_id])
+                            parent_mongo_id = node_relationships[parent_id]
+                            parents.append(parent_mongo_id)
+                            # Update the parent node to include this node as a child
+                            await nodes.update_one(
+                                {"_id": ObjectId(parent_mongo_id)},
+                                {"$addToSet": {"children": mongo_id}}
+                            )
+                        else:
+                            # This is an existing node ID, use it directly
+                            parents.append(parent_id)
+                            # Update the existing parent node to include this node as a child
+                            await nodes.update_one(
+                                {"_id": ObjectId(parent_id)},
+                                {"$addToSet": {"children": mongo_id}}
+                            )
                     
                     # Convert child IDs
                     children = []
                     for child_id in node_data.get("children", []):
+                        # Check if child is a new node (in node_relationships) or an existing node
                         if child_id in node_relationships:
-                            children.append(node_relationships[child_id])
+                            child_mongo_id = node_relationships[child_id]
+                            children.append(child_mongo_id)
+                            # Update the child node to include this node as a parent
+                            await nodes.update_one(
+                                {"_id": ObjectId(child_mongo_id)},
+                                {"$addToSet": {"parents": mongo_id}}
+                            )
+                        else:
+                            # This is an existing node ID, use it directly
+                            children.append(child_id)
+                            # Update the existing child node to include this node as a parent
+                            await nodes.update_one(
+                                {"_id": ObjectId(child_id)},
+                                {"$addToSet": {"parents": mongo_id}}
+                            )
                     
                     # Update node with correct relationships
                     await nodes.update_one(
@@ -131,10 +195,12 @@ async def process_ai_response(response: str, user_id: str):
                         {
                             "$set": {
                                 "parents": parents,
-                                "children": children
+                                "children": children,
+                                "updated_at": datetime.utcnow()
                             }
                         }
                     )
+                    logger.info(f"Updated relationships for node {mongo_id}: parents={parents}, children={children}")
         
         # Process node updates
         if "updates" in data:
@@ -164,6 +230,17 @@ async def process_ai_response(response: str, user_id: str):
                     )
                     logger.info(f"Updated existing node: {node_id}")
         
+        # Ensure root nodes are properly marked
+        if new_nodes:
+            for branch_id in new_branches:
+                branch = await branches.find_one({"_id": ObjectId(branch_id)})
+                if branch and branch.get("root_node"):
+                    await nodes.update_one(
+                        {"_id": ObjectId(branch["root_node"])},
+                        {"$set": {"root": True}}
+                    )
+                    logger.info(f"Marked node {branch['root_node']} as root for branch {branch_id}")
+        
         return {
             "status": "success",
             "new_branches": new_branches,
@@ -185,21 +262,31 @@ async def generateAINodes(current_user):
     prompt = """
 You are a personal diary and note taking assistant. Given Email data and Event data and previous node data,
  generate the next few nodes in a graph of this users life. A node can represent a big accomplisment, a grade, or vacation. 
- Your job is to help these people keep track of all the things they have done, the good and the bad. Nodes can branch off, such as for a vacation, or simmilar event, and these branches can merge back.
- Do not add more than two branches at a time. Here is an example of a graph, you will not be generating the full graph just adding some more as needed. If you believe that no new nodes should be added, then respond with a json of {"status": "Done", "count": 0, "nodes": []}
- 
- Otherwise, you will increment the count for each new node added and update the nodes list. Here is the graph example
+ Your job is to help these people keep track of all the things they have done, the good and the bad. Nodes can branch off, such as for a vacation, or similar event, and these branches can merge back.
+ Do not add more than one branch other than 'main' at a time. If you believe that no new nodes should be added, then respond with a json of {"status": "Done", "count": 0, "nodes": []}
+
+CRITICAL REQUIREMENTS FOR NODE RELATIONSHIPS:
+1. EVERY node MUST have at least one relationship (parent or child)
+2. If a node is a follow-up or related to another node, it MUST be connected
+3. Use existing nodes as parents when appropriate
+4. Make relationships bidirectional (if A is a parent of B, B must be a child of A)
+5. The first node in your response should be connected to the most recent existing node
+6. Each subsequent node should be connected to either an existing node or a previously created node in your response
+
+ 1. Exactly one root node (no parents)
+    2. Exactly one leaf node (no children)
+    3. All other nodes have both parents and children
+    4. Relationships are bidirectional
+    5. Each branch has a valid root_node
+    6. At most 2 parents.
+
+Here is an example of a graph with proper relationships:
  {
   "branches": [
     {
       "name": "Main Project",
       "user_id": "user_123",
       "root_node": "node_1"
-    },
-    {
-      "name": "Alternative Approach",
-      "user_id": "user_123",
-      "root_node": "node_6"
     }
   ],
   "nodes": [
@@ -208,12 +295,11 @@ You are a personal diary and note taking assistant. Given Email data and Event d
       "title": "Introduction",
       "description": "Overview of the project",
       "branch": "branch_main",
-      "parents": [],
-      "children": ["temp_node_2"],
+      "parents": ["existing_node_123"],  // Connected to existing node
+      "children": ["temp_node_2"],       // Connected to new node
       "sources": [{ "kind": "pdf", "item": "pdf_001" }],
       "occured_at": "2025-03-20T08:00:00Z",
-      "created_at": "2025-03-20T10:15:00Z",
-      "root": true
+      "created_at": "2025-03-20T10:15:00Z"
     },
     {
       "_id": "temp_node_2",
@@ -221,30 +307,14 @@ You are a personal diary and note taking assistant. Given Email data and Event d
       "description": "Defining the core problem",
       "user_id": "user_123",
       "branch": "branch_main",
-      "parents": ["temp_node_1"],
-      "children": ["temp_node_3", "temp_node_4"],
+      "parents": ["temp_node_1"],         // Connected to previous node
+      "children": ["temp_node_3"],        // Connected to next node
       "sources": [{ "kind": "email", "item": "email_002" }],
       "created_at": "2025-03-21T09:30:00Z",
       "updated_at": "2025-03-21T12:00:00Z"
     }
-  ],
-  "updates": [
-    {
-      "node_id": "existing_node_id",
-      "description": "Updated description with new information",
-      "sources": [{ "kind": "email", "item": "new_email_001" }]
-    }
   ]
 }
-
-Important notes:
-1. Use temporary IDs starting with "temp_" for your nodes (e.g., "temp_node_1")
-2. Reference these temporary IDs in parents and children arrays
-3. The system will convert these temporary IDs to real MongoDB IDs
-4. Make sure all referenced IDs exist in your nodes list
-5. Branch names should be unique for the user
-6. You can update existing nodes by including them in the "updates" array with their existing node_id
-7. When updating nodes, only include the fields you want to update (description, sources, etc.)
 
 The descriptions should be much longer in your response, please include as much info as you could gather about these moments in time for the user.
 DO NOT MENTION YOURSELF. YOU ARE TALKING TO THE USER IN THE DESCRIPTION.
@@ -321,6 +391,7 @@ THIS IS IN DEV MODE, TRY AND ALWAYS CREATE ATLEAST ONE NODE
             context += f"Title: {node.get('title', 'Untitled')}\n"
             context += f"Description: {node.get('description', 'No description')}\n"
             context += f"Branch: {node.get('branch', 'Main')}\n"
+            context += f"ID: {str(node.get('_id'))}\n"  # Add node ID to context
             if node.get('parents'):
                 context += f"Parents: {', '.join(node['parents'])}\n"
             if node.get('children'):
@@ -336,3 +407,238 @@ THIS IS IN DEV MODE, TRY AND ALWAYS CREATE ATLEAST ONE NODE
     # Process the response and create nodes/branches
     result = await process_ai_response(response, str(current_user["_id"]))
     return result
+
+async def validate_and_clean_node_graph(graph_data: dict) -> dict:
+    """
+    Validates and cleans up a node graph to ensure:
+    1. Exactly one root node (no parents)
+    2. Exactly one leaf node (no children)
+    3. All other nodes have both parents and children
+    4. Relationships are bidirectional
+    5. Each branch has a valid root_node
+    6. At most 2 parents per node
+    7. Main branch is always named "branch_main", and it's ID should become "branch_main" too, all references to it should use "branch_main" in place of an ID
+    
+    Args:
+        graph_data: Dictionary containing nodes and their relationships
+        
+    Returns:
+        Cleaned and validated graph data
+    """
+    try:
+        # If no nodes, return the original data
+        if not graph_data.get("nodes") or len(graph_data["nodes"]) == 0:
+            logger.warning("No nodes found in graph data")
+            return graph_data
+            
+        # Create a mapping of node IDs to node data
+        nodes_map = {node["_id"]: node for node in graph_data["nodes"]}
+        
+        # STEP 1: Ensure we have a main branch named "branch_main"
+        main_branch = None
+        if "branches" in graph_data:
+            # Look for existing main branch
+            for branch in graph_data["branches"]:
+                if branch.get("name") == "Main Branch" or branch.get("name") == "branch_main":
+                    main_branch = branch
+                    # Rename to "branch_main" if not already
+                    if branch.get("name") != "branch_main":
+                        branch["name"] = "branch_main"
+                        logger.info(f"Renamed branch {branch['_id']} to 'branch_main'")
+                    break
+            
+            # If no main branch found, create one or rename the first branch
+            if not main_branch and graph_data["branches"]:
+                main_branch = graph_data["branches"][0]
+                main_branch["name"] = "branch_main"
+                logger.info(f"Set first branch {main_branch['_id']} as 'branch_main'")
+        else:
+            # No branches at all, create a placeholder
+            graph_data["branches"] = []
+        
+        # STEP 2: Identify or create a root node (node with no parents)
+        root_node = None
+        for node in graph_data["nodes"]:
+            if node.get("root") is True or not node.get("parents"):
+                root_node = node
+                node["root"] = True
+                node["parents"] = []
+                logger.info(f"Found/set root node: {node['_id']}")
+                break
+                
+        # If no root found, make the oldest node the root
+        if not root_node and graph_data["nodes"]:
+            root_node = graph_data["nodes"][0]
+            root_node["root"] = True
+            root_node["parents"] = []
+            logger.info(f"No root node found, set first node as root: {root_node['_id']}")
+        
+        # STEP 3: Find/create a leaf node (node with no children)
+        leaf_node = None
+        for node in graph_data["nodes"]:
+            if not node.get("children") and node["_id"] != root_node["_id"]:
+                leaf_node = node
+                logger.info(f"Found leaf node: {node['_id']}")
+                break
+                
+        # If no leaf found, make the most recent node the leaf
+        if not leaf_node and len(graph_data["nodes"]) > 1:
+            # Try to find the newest node
+            try:
+                newest_nodes = sorted(
+                    [n for n in graph_data["nodes"] if n["_id"] != root_node["_id"]], 
+                    key=lambda x: x.get("created_at", ""),
+                    reverse=True
+                )
+                leaf_node = newest_nodes[0]
+                leaf_node["children"] = []
+                logger.info(f"Set newest node as leaf: {leaf_node['_id']}")
+            except Exception as e:
+                logger.error(f"Error finding newest node: {e}")
+                # Just use the last node in the list
+                for node in graph_data["nodes"]:
+                    if node["_id"] != root_node["_id"]:
+                        leaf_node = node
+                        leaf_node["children"] = []
+                        logger.info(f"Set last non-root node as leaf: {leaf_node['_id']}")
+                        break
+        
+        # STEP 4: Ensure every non-root node has at least one parent
+        # and every non-leaf node has at least one child
+        # Also ensure nodes have at most 2 parents
+        for node in graph_data["nodes"]:
+            # Ensure parents list exists
+            if "parents" not in node:
+                node["parents"] = []
+                
+            # Ensure children list exists
+            if "children" not in node:
+                node["children"] = []
+                
+            # Limit to at most 2 parents (except for root which has 0)
+            if node["_id"] != root_node["_id"] and len(node.get("parents", [])) > 2:
+                # Keep only the first 2 parents
+                original_parents = node["parents"].copy()
+                node["parents"] = node["parents"][:2]
+                logger.info(f"Limited node {node['_id']} to 2 parents, removed: {original_parents[2:]}")
+                
+            # If not root and has no parents, connect to root
+            if node["_id"] != root_node["_id"] and not node["parents"]:
+                node["parents"] = [root_node["_id"]]
+                if node["_id"] not in root_node["children"]:
+                    root_node["children"].append(node["_id"])
+                logger.info(f"Connected orphaned node {node['_id']} to root")
+                
+            # If not leaf and has no children, connect to leaf
+            if leaf_node and node["_id"] != leaf_node["_id"] and not node["children"]:
+                node["children"] = [leaf_node["_id"]]
+                if node["_id"] not in leaf_node["parents"] and len(leaf_node["parents"]) < 2:
+                    leaf_node["parents"].append(node["_id"])
+                logger.info(f"Connected childless node {node['_id']} to leaf")
+                
+            # Ensure node belongs to main branch if branch doesn't exist
+            if "branch" not in node or not node["branch"]:
+                if main_branch:
+                    node["branch"] = main_branch["_id"]
+                    logger.info(f"Assigned node {node['_id']} to main branch")
+        
+        # STEP 5: Make sure relationships are bidirectional
+        for node in graph_data["nodes"]:
+            # For each parent, ensure this node is in their children list
+            for parent_id in node["parents"]:
+                if parent_id in nodes_map and node["_id"] not in nodes_map[parent_id].get("children", []):
+                    nodes_map[parent_id]["children"] = nodes_map[parent_id].get("children", []) + [node["_id"]]
+                    logger.info(f"Added bidirectional relationship: {parent_id} -> {node['_id']}")
+            
+            # For each child, ensure this node is in their parents list
+            # but respect the maximum of 2 parents rule
+            for child_id in node["children"]:
+                if child_id in nodes_map:
+                    child_node = nodes_map[child_id]
+                    # Only add as parent if the child doesn't already have 2 parents
+                    if node["_id"] not in child_node.get("parents", []) and len(child_node.get("parents", [])) < 2:
+                        child_node["parents"] = child_node.get("parents", []) + [node["_id"]]
+                        logger.info(f"Added bidirectional relationship: {node['_id']} -> {child_id}")
+        
+        # STEP 6: Create main branch if it doesn't exist and ensure it has a root_node
+        if not main_branch:
+            # Create a new main branch
+            new_branch = {
+                "_id": str(ObjectId()),  # Generate a temporary ID for the branch
+                "name": "branch_main",
+                "user_id": nodes_map[list(nodes_map.keys())[0]]["user_id"] if nodes_map else "unknown"
+            }
+            graph_data["branches"].append(new_branch)
+            main_branch = new_branch
+            logger.info("Created new main branch 'branch_main'")
+        
+        # Ensure main branch has a root_node
+        if root_node and main_branch and not main_branch.get("root_node"):
+            main_branch["root_node"] = root_node["_id"]
+            logger.info(f"Set root_node in main branch to {root_node['_id']}")
+            
+            # Also set the root node's branch to main branch
+            if "branch" not in root_node or not root_node["branch"]:
+                root_node["branch"] = main_branch["_id"]
+                logger.info(f"Set root node's branch to main branch")
+        
+        # STEP 7: Update the database with branch changes
+        try:
+            for branch in graph_data.get("branches", []):
+                if branch.get("_id") and "root_node" in branch and branch["root_node"]:
+                    # Check if this is a MongoDB ObjectId or a temporary ID
+                    if ObjectId.is_valid(branch["_id"]):
+                        await branches.update_one(
+                            {"_id": ObjectId(branch["_id"])},
+                            {"$set": {
+                                "root_node": branch["root_node"],
+                                "name": branch["name"]
+                            }}
+                        )
+                        logger.info(f"Updated branch {branch['_id']} with root_node {branch['root_node']} and name {branch['name']}")
+                    else:
+                        # This is a new branch with a temporary ID, need to create it
+                        branch_data = {
+                            "name": branch["name"],
+                            "user_id": branch["user_id"],
+                            "root_node": branch["root_node"]
+                        }
+                        result = await branches.insert_one(branch_data)
+                        # Update the ID in our graph data
+                        branch["_id"] = str(result.inserted_id)
+                        logger.info(f"Created new branch '{branch['name']}' with ID {branch['_id']}")
+                        
+                        # Update any nodes that reference this branch
+                        for node in graph_data["nodes"]:
+                            if node.get("branch") == branch.get("_id"):
+                                await nodes.update_one(
+                                    {"_id": ObjectId(node["_id"])},
+                                    {"$set": {"branch": branch["_id"]}}
+                                )
+        except Exception as e:
+            logger.error(f"Error updating branches: {e}")
+        
+        # Add metadata about changes
+        changes = []
+        if root_node:
+            changes.append(f"Set {root_node['_id']} as root node")
+        if leaf_node:
+            changes.append(f"Set {leaf_node['_id']} as leaf node")
+        if main_branch:
+            changes.append(f"Ensured main branch is named 'branch_main'")
+            
+        graph_data["metadata"] = {
+            "root_node": root_node["_id"] if root_node else None,
+            "leaf_node": leaf_node["_id"] if leaf_node else None,
+            "main_branch": main_branch["_id"] if main_branch else None,
+            "changes_made": changes,
+            "cleaned_at": datetime.utcnow().isoformat(),
+            "total_nodes": len(graph_data["nodes"])
+        }
+        
+        logger.info("Successfully cleaned graph structure")
+        return graph_data
+        
+    except Exception as e:
+        logger.error(f"Error cleaning node graph: {e}")
+        return graph_data

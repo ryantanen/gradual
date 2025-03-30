@@ -86,6 +86,7 @@ class User(BaseModel):
 class Branch(BaseMongoModel):
     name: str
     user_id: str
+    root_node: str
 
 class Source(BaseMongoModel):
     kind: str
