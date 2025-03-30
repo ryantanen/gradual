@@ -8,6 +8,7 @@ import { Login } from "./pages/Login";
 import { HomePage } from "./pages/HomePage";
 import { TokenCallback } from "./pages/TokenCallback";
 import App from "./App";
+import MyTree from "./pages/MyTree";
 
 const router = createBrowserRouter([
   {
@@ -31,6 +32,14 @@ const router = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <HomePage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/dashboard",
+        element: (
+          <ProtectedRoute>
+            <MyTree />
           </ProtectedRoute>
         ),
       },
