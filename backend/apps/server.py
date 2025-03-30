@@ -11,14 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timedelta
 from bson import ObjectId
 from .db import init_db, users, User
-from .email import router as email_router, sync_emails
-from .scheduler import sync_user_data
-from .auth import get_current_user, create_access_token, oauth2_scheme
-from .events import sync_events
-import logging
-
-# Configure logging
-logger = logging.getLogger(__name__)
+import uuid
 
 # CORS configuration
 origins = [
