@@ -62,14 +62,23 @@ class Contact(BaseMongoModel):
     phone_number: Optional[str] = None
     user_id: str
 
+class GoogleData(BaseModel):
+    sub: Optional[str] = None
+    name: Optional[str] = None
+    email: Optional[str] = None
+    picture: Optional[str] = None
+    email_verified: Optional[bool] = None
+    locale: Optional[str] = None
+
 class User(BaseMongoModel):
     name: Optional[str] = None
     email: Optional[str] = None
+    google_data: Optional[GoogleData] = None
     google_token: Optional[str] = None
 
 class Branch(BaseMongoModel):
-    uuid: str
     name: str
+    user_id: str
 
 class Source(BaseMongoModel):
     kind: str
@@ -89,7 +98,6 @@ async def init_db():
     """Initialize database with necessary indexes"""
     # Users collection indexes
     await users.create_index("email", unique=True)
-    await users.create_index("uuid", unique=True)
     
     # Emails collection indexes
     await emails.create_index("user_id")
@@ -114,7 +122,7 @@ async def init_db():
     await contacts.create_index("email")
     
     # Branches collection indexes
-    await branches.create_index("uuid", unique=True)
+    await branches.create_index("user_id")
     
     # Nodes collection indexes
     await nodes.create_index("user_id")

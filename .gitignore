@@ -74,3 +74,6 @@ coverage.xml
 *.cover
 *.py,cover
 .hypothesis/
+clientsecret.json
+emails.json
+events.json

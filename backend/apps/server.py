@@ -85,7 +85,8 @@ async def auth_google(code: str):
             {"email": user_data.get("email")},
             {
                 "$set": {
-                    "google_token": access_token
+                    "google_token": access_token,
+                    "google_data": user_data
                 }
             }
         )
@@ -95,8 +96,8 @@ async def auth_google(code: str):
         new_user = User(
             name=user_data.get("name"),
             email=user_data.get("email"),
-            access_token=access_token,
-            google_token=refresh_token
+            google_data=user_data,
+            google_token=access_token
         )
         result = await users.insert_one(new_user.model_dump())
         user_id = str(result.inserted_id)

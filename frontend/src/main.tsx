@@ -5,7 +5,7 @@ import "./index.css";
 import { AuthProvider } from "./auth/AuthContext";
 import { ProtectedRoute } from "./auth/ProtectedRoute";
 import { Login } from "./pages/Login";
-import { HomePage } from "./pages/HomePage";
+import { LandingPage } from "./pages/LandingPage";
 import { TokenCallback } from "./pages/TokenCallback";
 import App from "./App";
 import MyTree from "./pages/MyTree";
@@ -20,6 +20,10 @@ const router = createBrowserRouter([
     ),
     children: [
       {
+        path: "/",
+        element: <LandingPage />,
+      },
+      {
         path: "login",
         element: <Login />,
       },
@@ -28,15 +32,7 @@ const router = createBrowserRouter([
         element: <TokenCallback />,
       },
       {
-        path: "/",
-        element: (
-          <ProtectedRoute>
-            <HomePage />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: "/dashboard",
+        path: "dashboard",
         element: (
           <ProtectedRoute>
             <MyTree />

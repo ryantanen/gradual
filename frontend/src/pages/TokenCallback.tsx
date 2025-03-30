@@ -1,102 +1,128 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import useSWR from "swr";
+import { useAuth } from "../auth/AuthContext";
 
 export const TokenCallback = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const isProcessing = useRef(false);
+  const { setIsAuthenticated, setAccessToken } = useAuth();
 
-  const checkTokenValidity = async (token: string) => {
-    try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/token`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      if (!response.ok) {
-        throw new Error("Token validation failed");
-      }
-      return true;
-    } catch (error) {
-      console.error("Error checking token validity:", error);
-      return false;
+  // Get the authorization code from the URL
+  const params = new URLSearchParams(location.search);
+  const code = params.get("code");
+
+  // Create a fetcher function for the token exchange
+  const tokenFetcher = async (url: string) => {
+    const response = await fetch(url, {
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(
+        JSON.stringify({
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData,
+        })
+      );
     }
+
+    return response.json();
   };
 
+  // Use SWR to handle the token exchange
+  const { data, error } = useSWR(
+    code ? `${import.meta.env.VITE_API_URL}/auth/google?code=${code}` : null,
+    tokenFetcher,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      dedupingInterval: 10000, // Prevent duplicate requests for 10 seconds
+      shouldRetryOnError: false,
+    }
+  );
+
+  // Create a separate SWR hook for token validation
+  const validateToken = async (url: string) => {
+    if (!data?.access_token) return null;
+
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${data.access_token}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error("Token validation failed");
+    }
+
+    return true;
+  };
+
+  const { data: isValid, error: validationError } = useSWR(
+    data?.access_token ? `${import.meta.env.VITE_API_URL}/token` : null,
+    validateToken,
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+      dedupingInterval: 10000,
+      shouldRetryOnError: false,
+    }
+  );
+
+  // Handle navigation based on SWR states
   useEffect(() => {
-    const handleCallback = async () => {
-      if (isProcessing.current) return;
-      isProcessing.current = true;
+    // No code in URL
+    if (!code) {
+      navigate("/login");
+      return;
+    }
 
-      try {
-        // Get the authorization code from the URL
-        const params = new URLSearchParams(location.search);
-        const code = params.get("code");
+    // Error in token exchange
+    if (error) {
+      console.error("Failed to authenticate:", error);
+      navigate("/login");
+      return;
+    }
 
-        if (!code) {
-          throw new Error("No authorization code received");
-        }
+    // Data received successfully
+    if (data && !error) {
+      // Store user info and token
+      localStorage.setItem("user_info", JSON.stringify(data));
 
-        // Exchange the code for user info and token
-        const response = await fetch(
-          `${import.meta.env.VITE_API_URL}/auth/google?code=${code}`,
-          {
-            credentials: "include",
-            headers: {
-              "Content-Type": "application/json",
-            },
-          }
-        );
+      if (data.access_token) {
+        localStorage.setItem("access_token", data.access_token);
+        setAccessToken(data.access_token);
+        setIsAuthenticated(true);
 
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          console.error("Failed to authenticate with Google:", {
-            status: response.status,
-            statusText: response.statusText,
-            error: errorData,
-          });
+        // If token validation completed
+        if (isValid === true) {
+          console.log("Token is valid, navigating to home");
+          navigate("/");
+        } else if (validationError) {
+          console.error("Token validation failed:", validationError);
           navigate("/login");
-          return;
         }
-
-        const data = await response.json();
-        console.log("Auth response:", data);
-
-        if (data.error || data.user.error) {
-          console.error("Error in response:", data.error);
-          navigate("/login");
-          return;
-        }
-
-        // Store the user info
-        localStorage.setItem("user_info", JSON.stringify(data));
-
-        // Store the access token and validate it
-        if (data.access_token) {
-          localStorage.setItem("access_token", data.access_token);
-          const isValid = await checkTokenValidity(data.access_token);
-          console.log("Token is valid:", isValid);
-          if (isValid) {
-            navigate("/");
-          } else {
-            throw new Error("Token validation failed");
-          }
-        } else {
-          throw new Error("No access token received from server");
-        }
-      } catch (error) {
-        console.error("Error during token callback:", error);
-      } finally {
-        isProcessing.current = false;
+      } else {
+        console.error("No access token received from server");
+        navigate("/login");
       }
-    };
-
-    handleCallback();
-
-    return () => {
-      isProcessing.current = false;
-    };
-  }, [navigate, location.search]);
+    }
+  }, [
+    code,
+    data,
+    error,
+    isValid,
+    validationError,
+    navigate,
+    setIsAuthenticated,
+    setAccessToken,
+  ]);
 
   return (
     <div className="min-h-screen flex items-center justify-center">
@@ -107,3 +133,5 @@ export const TokenCallback = () => {
     </div>
   );
 };
+
+export default TokenCallback;

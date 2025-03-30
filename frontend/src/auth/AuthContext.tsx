@@ -6,6 +6,7 @@ import {
   ReactNode,
   useRef,
 } from "react";
+import useSWR from "swr";
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -13,7 +14,9 @@ interface AuthContextType {
   login: () => void;
   logout: () => void;
   getAccessToken: () => Promise<string | null>;
-  getUser: () => Promise<{ sub: string; name: string; picture: string }>;
+  user: User | null;
+  setIsAuthenticated: (value: boolean) => void;
+  setAccessToken: (token: string | null) => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -26,10 +29,46 @@ export const useAuth = () => {
   return context;
 };
 
+export interface User {
+  _id: string;
+  name: string | null;
+  email: string | null;
+  google_data: {
+    sub: string | null;
+    name: string | null;
+    email: string | null;
+    picture: string | null;
+    email_verified: boolean | null;
+    locale: string | null;
+  } | null;
+  google_token: string | null;
+}
+
+const fetcher = async (url: string, token: string) => {
+  const response = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  if (!response.ok) throw new Error("Failed to fetch user data");
+  return response.json();
+};
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const isInitialized = useRef(false);
+
+  // Use SWR for user data fetching
+  const { data: user, isLoading: isUserLoading } = useSWR(
+    accessToken ? [`${import.meta.env.VITE_API_URL}/me`, accessToken] : null,
+    ([url, token]) => fetcher(url, token),
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
+    }
+  );
 
   // Function to refresh the access token
   const refreshAccessToken = async () => {
@@ -52,6 +91,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const data = await response.json();
       localStorage.setItem("access_token", data.access_token);
       setAccessToken(data.access_token);
+      setIsAuthenticated(true);
       return data.access_token;
     } catch (error) {
       console.error("Error refreshing token:", error);
@@ -94,11 +134,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const isValid = await checkTokenValidity(token);
         if (isValid) {
           setAccessToken(token);
+          setIsAuthenticated(true);
         } else {
           // Token is invalid, clear it
           localStorage.removeItem("access_token");
           localStorage.removeItem("refresh_token");
           setAccessToken(null);
+          setIsAuthenticated(false);
         }
       }
     } catch (error) {
@@ -126,6 +168,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     localStorage.removeItem("refresh_token");
     localStorage.removeItem("user_info");
     setAccessToken(null);
+    setIsAuthenticated(false);
   };
 
   const getAccessToken = async () => {
@@ -141,27 +184,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return null;
   };
 
-  // Compute isAuthenticated based on localStorage
-  const isAuthenticated = !!localStorage.getItem("access_token");
-
-  const getUser = async () => {
-    const response = await fetch(`${import.meta.env.VITE_API_URL}/me`, {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem("access_token")}`,
-      },
-    });
-    return response.json();
-  };
-
   return (
     <AuthContext.Provider
       value={{
         isAuthenticated,
-        isLoading,
+        isLoading: isLoading || isUserLoading,
         login,
         logout,
-        getUser,
+        user: user || null,
         getAccessToken,
+        setIsAuthenticated,
+        setAccessToken,
       }}
     >
       {children}
