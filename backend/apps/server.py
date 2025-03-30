@@ -10,7 +10,7 @@ from jose import jwt, JWTError
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import datetime, timedelta
 from bson import ObjectId
-from .db import init_db, users, User
+from .db import init_db, users, nodes, branches, User, Node, Branch
 from .email import router as email_router, sync_emails
 from .scheduler import sync_user_data
 from .auth import get_current_user, create_access_token, oauth2_scheme
@@ -140,6 +140,38 @@ async def protected_route(current_user: dict = Depends(get_current_user)):
         "message": "You have access to this protected route",
         "user": current_user
     }
+
+@app.get("/nodes")
+async def get_nodes(current_user: dict = Depends(get_current_user)):
+    return await nodes.find({"user_id": current_user["_id"]}).to_list(None)
+
+@app.get("/node/{node_id}")
+async def get_node(node_id: str, current_user: dict = Depends(get_current_user)):
+    return await nodes.find_one({"_id": ObjectId(node_id), "user_id": current_user["_id"]})
+
+@app.post("/add-node")
+async def add_node(node_data: dict, current_user: dict = Depends(get_current_user)):
+    # just push it to the end of main branch latest
+    node = {
+        "description": node_data.get("description"),
+        "time": datetime.now(),
+        "branch": branches.find_one({"name": "Main Branch"})["_id"],
+        "user_id": current_user["_id"],
+        "parents": [],
+        "children": [],
+        "sources": []
+    }
+    result = await nodes.insert_one(node)
+    created_node = await nodes.find_one({"_id": result.inserted_id})
+    created_node["_id"] = str(created_node["_id"])    
+    return created_node
+
+@app.get("/users")
+async def get_users():
+    users_list = await users.find().to_list(None)
+    for user in users_list:
+        user["_id"] = str(user["_id"])
+    return users_list
 
 if __name__ == "__main__":
     import uvicorn
