@@ -29,14 +29,14 @@ async def sync_user_events(current_user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail=str(e))
 
 async def get_user_events(
-    current_user: dict = Depends(get_current_user),
+    current_user: dict,
     skip: int = 0,
     limit: int = 50,
     start_date: datetime = None,
     end_date: datetime = None
 ):
     """Get user's events with pagination and date filtering"""
-    user_id = current_user["_id"]
+    user_id = str(current_user["_id"])
     
     # Build query
     query = {"user_id": user_id}

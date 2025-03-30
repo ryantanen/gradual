@@ -25,13 +25,13 @@ async def sync_user_emails(current_user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail=str(e))
 
 async def get_user_emails(
-    current_user: dict = Depends(get_current_user),
+    current_user: dict,
     skip: int = 0,
     limit: int = 50,
     starred_only: bool = False
 ):
     """Get user's emails with pagination and filtering"""
-    user_id = current_user["_id"]
+    user_id = str(current_user["_id"])
     
     # Build query
     query = {"user_id": user_id}
