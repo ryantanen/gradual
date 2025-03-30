@@ -25,7 +25,7 @@ function MyTree() {
                             Google Calendar
                         </button>
                         <button className="btn btn-outline">
-                            <img src={gmail} className="h-6 w-6" />
+                            <img src={gmail} className="h-5 w-auto" />
                             Gmail
                         </button>
                         <button className="btn btn-outline">
