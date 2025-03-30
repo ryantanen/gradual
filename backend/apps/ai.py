@@ -449,7 +449,7 @@ async def validate_and_clean_node_graph(graph_data: dict) -> dict:
     4. Relationships are bidirectional
     5. Each branch has a valid root_node
     6. At most 2 parents per node
-    7. Main branch is always named "branch_main", and it's ID should become "branch_main" too. 
+    7. Main branch is always named "branch_main", and its ID should become "branch_main" too. 
     
     Args:
         graph_data: Dictionary containing nodes and their relationships

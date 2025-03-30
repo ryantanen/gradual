@@ -123,7 +123,7 @@ export default function Graph({
 
       // Get root node's level
       let level =
-        curr_branch === main_branch_id
+        curr_branch === main_branch_id || curr_branch.includes("main")
           ? 0
           : (nodes.find((n) => n.id === curr_node.parents[0])?.position.y ??
               0 - 75) /
@@ -134,7 +134,7 @@ export default function Graph({
         // console.log("ROOT", curr_node)
         nodes.push({
           position: {
-            x: curr_branch === main_branch_id ? 250 : 150,
+            x: curr_branch === main_branch_id || curr_branch.includes("main") ? 250 : 150,
             y: level * 100 + 75,
           },
           type: "customNode",
@@ -142,13 +142,13 @@ export default function Graph({
           data: {
             id: curr_node._id,
             label: curr_node.title,
-            date: curr_node.created_at,
+            date: new Date(curr_node.created_at).toLocaleDateString('en-US', {month: 'numeric', day: 'numeric', year: '2-digit'}),
             info: curr_node.description,
-            direction: curr_branch ===  main_branch_id ? "r" : "l",
+            direction: curr_branch ===  main_branch_id || curr_branch.includes("main") ? "r" : "l",
             special:
               curr_node.parents.length > 1
                 ? "merge"
-                : curr_node.branch !== main_branch_id
+                : curr_node.branch !== main_branch_id || curr_branch.includes("main") && !curr_node.branch.includes("main")
                 ? "branch"
                 : null,
           } as NodeData,
@@ -171,7 +171,7 @@ export default function Graph({
             curr_branch
         );
 
-        if (!curr_node_id && curr_branch !== "branch_main") {
+        if (!curr_node_id && !curr_branch?.includes("branch_main")) {
           let final_node = data.nodes.find(
             (node) => node._id === curr_node.children[0]
           );
