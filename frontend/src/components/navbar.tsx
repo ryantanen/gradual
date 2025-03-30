@@ -17,7 +17,7 @@ const Navbar = () => {
   return (
     <div className="navbar bg-accent-content shadow-sm text-base-200">
       <div className="flex-1">
-        <a className="btn btn-ghost text-3xl">Gradual.</a>
+        <a className="btn btn-ghost text-3xl" href="/">Gradual.</a>
       </div>
       <button className="btn mx-5" onClick={() => fetchAIData().then((res) => {
         console.log("Done")

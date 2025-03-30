@@ -34,7 +34,9 @@ const nodeTypes = {
 
 export const LandingPage = () => {
   return (
-    <div className="min-h-screen bg-base-100 flex items-center justify-center">
+    <div className="min-h-screen bg-base-100 flex items-center justify-center"             style={{
+      backgroundImage: "radial-gradient(circle at center, rgba(81, 119, 255, 0.25) 0%, rgba(255, 255, 255, 0) 70%)"
+    }}>
       <div className="max-w-5xl w-full h-full relative flex">
 
         <div className="my-20 text-left mb-8 flex-5.5">
