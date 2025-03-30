@@ -21,11 +21,11 @@
   },
   {
     "id": "i3cfbotmun99buam06l5v3uku8",
-    "start": null,
-    "end": null,
-    "location": null,
+    "start": "2024-02-25",
+    "end": "2024-02-26",
+    "location": "No location",
     "event_name": "Happy birthday!",
-    "event_desc": null,
+    "event_desc": "No description",
     "collaborators": []
   },
   {
@@ -61,5 +61,41 @@
       "11yuviji@gmail.com",
       "sunwillard@gmail.com"
     ]
+  },
+  {
+    "id": "20250129_451jrooohndis92t2io0hohld0",
+    "start": "2025-01-29",
+    "end": "2025-01-30",
+    "location": "No location",
+    "event_name": "Lunar New Year's Day",
+    "event_desc": "Public holiday",
+    "collaborators": []
+  },
+  {
+    "id": "20250130_ghgriau6qte439alskn6md71pk",
+    "start": "2025-01-30",
+    "end": "2025-01-31",
+    "location": "No location",
+    "event_name": "Second Day of Lunar New Year",
+    "event_desc": "Public holiday",
+    "collaborators": []
+  },
+  {
+    "id": "20250214_k3k40qn27mmqfagr365jkff954",
+    "start": "2025-02-14",
+    "end": "2025-02-15",
+    "location": "No location",
+    "event_name": "Valentine's Day",
+    "event_desc": "Observance\nTo hide observances, go to Google Calendar Settings > Holidays in Hong Kong",
+    "collaborators": []
+  },
+  {
+    "id": "20250131_c2h6mfbiai51tonohpadtuosgg",
+    "start": "2025-01-31",
+    "end": "2025-02-01",
+    "location": "No location",
+    "event_name": "Third Day of Lunar New Year",
+    "event_desc": "Public holiday",
+    "collaborators": []
   }
 ]

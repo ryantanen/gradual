@@ -1,7 +1,13 @@
 import requests
 import json
+import urllib
 
-access_token = "ya29.a0AeXRPp6A92iN-g5ntVfuB5n0p7zqOa9PReUMikRtnLNtxu6DU5RImzNxYvFkhit0WDiP82At59uvITG9pHjvMMLSskfCpaaNIzKA6E-nhggXDxdbo8VctMg8eF5NyvJ6PkTngnM0JmFRR4yXDdcQG050SRBzafWV5iecrhNsaCgYKAaISARASFQHGX2MivwOmc2qGcas6kYpJx4EWHg0175"
+
+from dotenv import load_dotenv
+import os
+load_dotenv()
+access_token = os.getenv("TEST_GOOGLE_ACCESS_TOKEN")
+
 def get_events_between(startTS, endTS): 
     # gets events from all calendars between startTs and endTS
     # startTS and endTS has to be RFC 3339 format        
@@ -14,7 +20,7 @@ def get_events_between(startTS, endTS):
         headers=headers
     ).json()
 
-    #print(response)
+    print(response)
 
     if 'items' not in response:
         print("No calendars fetched")
@@ -24,8 +30,9 @@ def get_events_between(startTS, endTS):
     for calendar in response['items']:
         #print (calendar['id'])
         #print (f"https://www.googleapis.com/calendar/v3/calendars/{calendar['id']}/events?timeMin={startTS}&timeMax={endTS}")
+        encoded_id = urllib.parse.quote(calendar['id'], safe='')
         calendar_data = requests.get(
-            f"https://www.googleapis.com/calendar/v3/calendars/{calendar['id']}/events?timeMin={startTS}&timeMax={endTS}",
+            f"https://www.googleapis.com/calendar/v3/calendars/{encoded_id}/events?timeMin={startTS}&timeMax={endTS}",
             headers=headers
         ).json()
 
@@ -33,13 +40,14 @@ def get_events_between(startTS, endTS):
             continue
 
         for event in calendar_data['items']:
-            id = event.get('id', None)
-            start = event['start'].get('dateTime', None)
-            end = event['end'].get('dateTime', None)
-            location = event.get('location', None)
-            event_name = event.get('summary', None)
-            event_desc = event.get('description', None)
-            collaborators = [attendee.get('email', None) for attendee in event.get('attendees', [])]
+            id = event.get('id', "No ID")
+            start = event.get('start', {}).get('dateTime') or event.get('start', {}).get('date') or "No start time"
+            end = event.get('end', {}).get('dateTime') or event.get('end', {}).get('date') or "No end time"
+            location = event.get('location', "No location")
+            event_name = event.get('summary', "No event name")
+            event_desc = event.get('description', "No description")
+            collaborators = [attendee.get('email', "No email") for attendee in event.get('attendees', [])] if 'attendees' in event else []
+
 
             event_data = {
                 "id": id,
