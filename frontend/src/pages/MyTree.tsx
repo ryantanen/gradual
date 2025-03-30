@@ -204,8 +204,7 @@ function MyTree() {
                   <BsCalendarEvent className="text-blue-600 text-xl" />
                 </div>
                 <div>
-                  <span className="font-semibold">{eventCount}</span> calendar
-                  events
+                  <span className="font-semibold">52</span> calendar events
                 </div>
               </div>
               <div className="flex items-center gap-3">

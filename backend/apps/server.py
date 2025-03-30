@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 # CORS configuration
 origins = [
-    "*"
+    "https://trygradual.tech"
 ]
 
 app = FastAPI()
