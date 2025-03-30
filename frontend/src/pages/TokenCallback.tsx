@@ -75,6 +75,7 @@ export const TokenCallback = () => {
         if (data.access_token) {
           localStorage.setItem("access_token", data.access_token);
           const isValid = await checkTokenValidity(data.access_token);
+          console.log("Token is valid:", isValid);
           if (isValid) {
             navigate("/");
           } else {
@@ -85,7 +86,6 @@ export const TokenCallback = () => {
         }
       } catch (error) {
         console.error("Error during token callback:", error);
-        navigate("/login");
       } finally {
         isProcessing.current = false;
       }

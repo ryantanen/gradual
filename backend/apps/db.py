@@ -1,20 +1,124 @@
-def init_blacklist_file():
-    open('blacklist_db.txt', 'a').close()
-    return True
+from motor import motor_asyncio
+import os
+from typing import Annotated
+from pydantic import BeforeValidator
 
+client = motor_asyncio.AsyncIOMotorClient(os.getenv("MONGODB_URL"))
+db = client.get_database("production")
+PyObjectId = Annotated[str, BeforeValidator(str)]
 
-def add_blacklist_token(token):
-    with open('blacklist_db.txt', 'a') as file:
-        file.write(f'{token},')
-    return True
+# Collections
+emails = db.get_collection("emails")
+pdfs = db.get_collection("pdfs")
+photos = db.get_collection("photos")
+calendars = db.get_collection("calendars") 
+contacts = db.get_collection("contacts")
+users = db.get_collection("users")
+branches = db.get_collection("branches")
+nodes = db.get_collection("nodes")
 
+# Models
+from pydantic import BaseModel, Field
+from typing import List, Optional
+from datetime import datetime
+from bson import ObjectId
 
-def is_token_blacklisted(token):
-    with open('blacklist_db.txt') as file:
-        content = file.read()
-        array = content[:-1].split(',')
-        for value in array:
-            if value == token:
-                return True
+class BaseMongoModel(BaseModel):
+    _id: str
 
-    return False
+class Email(BaseMongoModel):
+    sender: str
+    subject: Optional[str] = None
+    datetime: datetime
+    content: Optional[str] = None
+    url: Optional[str] = None
+    is_starred: bool = False
+    user_id: str
+
+class PDF(BaseMongoModel):
+    filename: Optional[str] = None
+    title: Optional[str] = None
+    content: Optional[str] = None
+    user_id: str
+
+class Photo(BaseMongoModel):
+    datetime: datetime
+    description: Optional[str] = None
+    location: Optional[str] = None
+    user_id: str
+
+class Calendar(BaseMongoModel):
+    datetime_start: datetime
+    datetime_end: datetime
+    event_name: Optional[str] = None
+    location: Optional[str] = None
+    description: Optional[str] = None
+    collaborators: List[str] = []
+    user_id: str
+
+class Contact(BaseMongoModel):
+    name: Optional[str] = None
+    email: Optional[str] = None
+    phone_number: Optional[str] = None
+    user_id: str
+
+class User(BaseMongoModel):
+    name: Optional[str] = None
+    email: Optional[str] = None
+    google_token: Optional[str] = None
+
+class Branch(BaseMongoModel):
+    uuid: str
+    name: str
+
+class Source(BaseMongoModel):
+    kind: str
+    item: str
+
+class Node(BaseMongoModel):
+    parents: List[str] = []
+    children: List[str] = []
+    user_id: str
+    sources: List[Source] = []
+    image_url: Optional[str] = None
+    title: Optional[str] = None
+    description: Optional[str] = None
+    branch: str
+
+async def init_db():
+    """Initialize database with necessary indexes"""
+    # Users collection indexes
+    await users.create_index("email", unique=True)
+    await users.create_index("uuid", unique=True)
+    
+    # Emails collection indexes
+    await emails.create_index("user_id")
+    await emails.create_index("datetime")
+    await emails.create_index("is_starred")
+    
+    # PDFs collection indexes
+    await pdfs.create_index("user_id")
+    await pdfs.create_index("title")
+    
+    # Photos collection indexes
+    await photos.create_index("user_id")
+    await photos.create_index("datetime")
+    
+    # Calendars collection indexes
+    await calendars.create_index("user_id")
+    await calendars.create_index("datetime_start")
+    await calendars.create_index("datetime_end")
+    
+    # Contacts collection indexes
+    await contacts.create_index("user_id")
+    await contacts.create_index("email")
+    
+    # Branches collection indexes
+    await branches.create_index("uuid", unique=True)
+    
+    # Nodes collection indexes
+    await nodes.create_index("user_id")
+    await nodes.create_index("branch")
+    await nodes.create_index("parents")
+    await nodes.create_index("children")
+
