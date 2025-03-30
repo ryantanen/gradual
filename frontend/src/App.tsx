@@ -29,9 +29,6 @@ function App() {
       <main className="flex-grow">
         <Outlet />
       </main>
-      <button className="btn btn-primary" onClick={handleClick}>
-        Click me
-      </button>
     </div>
   );
 }
