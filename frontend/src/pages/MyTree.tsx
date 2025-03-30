@@ -3,16 +3,69 @@ import Graph from "../components/tree/graph";
 import { HiMail } from "react-icons/hi";
 import { BsCalendarEvent } from "react-icons/bs";
 import { IoDocumentTextOutline } from "react-icons/io5";
+import { useState, FormEvent } from "react";
 
 import gcal from "../assets/gcal.png";
 import gmail from "../assets/gmail.png";
 import pdf from "../assets/pdfs.png";
-import { useState } from "react";
+import { useAuth } from "@/auth/AuthContext";
 
 function MyTree() {
+    const { getAccessToken } = useAuth();
+
+    // const fetchAIData = async () => {
+    //   const token = await getAccessToken();
+    //   const response = await fetch(`${import.meta.env.VITE_API_URL}/run-ai`, {
+    //     headers: {
+    //       Authorization: `Bearer ${token}`,
+    //     },
+    //   });
+    //   if (!response.ok) throw new Error('Failed to fetch AI data');
+    //   return response.json();
+    // };
+
     const [bigHeader, setBigHeader] = useState<any>("In summary");
     const [smallInfo, setSmallInfo] = useState<any>("You, Willard Sun are a guy and that is very cool. You, Willard Sun are a guy and that is very cool. You, Willard Sun are a guy and that is very cool. You, Willard Sun are a guy and that is very cool.");
-    const [underlineColor, setUnderlineColor] = useState<any>("decoration-black-100")
+    const [underlineColor, setUnderlineColor] = useState<any>("decoration-black-100");
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        if (event.target.files && event.target.files[0]) {
+            setSelectedFile(event.target.files[0]);
+        }
+    };
+
+
+    const handleUpload = async (event: FormEvent) => {
+        event.preventDefault();
+        if (!selectedFile) return;
+
+        const formData = new FormData();
+        formData.append('file', selectedFile);
+        try {
+            const token = await getAccessToken();
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/upload-pdf`, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                throw new Error('Upload failed');
+            }
+
+            // Clear form and close modal
+            setSelectedFile(null);
+            document.getElementById('my_modal_1')?.querySelector('form')?.reset();
+            (document.getElementById('my_modal_1') as HTMLDialogElement)?.close();
+
+        } catch (error) {
+            console.error('Error uploading file:', error);
+            // You might want to show an error message to the user here
+        }
+    };
 
     return (
         <>
@@ -23,23 +76,39 @@ function MyTree() {
                     <form method="dialog" className="modal-backdrop">
                         <button className="btn btn-sm btn-circle absolute right-2 top-2">✕</button>
                     </form>
-                    <h3 className="font-bold text-xl mb-5">Add a new source.</h3>
+                    <h3 className="font-bold text-xl py-3">Add Another Source</h3>
+
+                    <form onSubmit={handleUpload}>
+                        <div className="form-control w-full">
+                            <h3 className="font-bold text-l my-3">New PDF</h3>
+                            <input
+                                type="file"
+                                accept=".pdf"
+                                onChange={handleFileChange}
+                                className="file-input file-input-bordered w-full"
+                            />
+                            <button
+                                type="submit"
+                                disabled={!selectedFile}
+                                className={`btn bg-accent-content shadow-sm mt-4 w-full ${selectedFile && "text-base-200"}`}
+                            >
+                                {/* <img src={pdf} className="h-6 w-6 mr-2" /> */}
+                                Upload Document
+                            </button>
+                        </div>
+                    </form>
+
+                    <h3 className="font-bold text-l my-3">Already Connected</h3>
                     <div className="flex flex-wrap gap-3">
-                        <button className="btn btn-outline">
+                        <button className="btn btn-outline btn-disabled">
                             <img src={gcal} className="h-6 w-6" />
                             Google Calendar
                         </button>
-                        <button className="btn btn-outline">
+                        <button className="btn btn-outline btn-disabled">
                             <img src={gmail} className="h-5 w-auto" />
                             Gmail
                         </button>
-                        <button className="btn btn-outline">
-                            <img src={pdf} className="h-6 w-6" />
-                            Add a PDF
-                        </button>
                     </div>
-
-
                 </div>
                 <form method="dialog" className="modal-backdrop">
                     <button>close</button>
@@ -89,8 +158,11 @@ function MyTree() {
                                 </div>
                             </div>
                         </div>
-                        <button className="mt-3 btn btn-outline btn-block p-5"
-                            onClick={() => document.getElementById('my_modal_1')?.showModal()}
+                        <button className="btn btn-outline btn-block mt-5 p-5"
+                            onClick={() => {
+                                const modal = document.getElementById('my_modal_1') as HTMLDialogElement;
+                                if (modal) modal.showModal();
+                            }}
                         >
                             Add another source
                         </button>
