@@ -7,7 +7,11 @@ import { FaCirclePlus } from "react-icons/fa6";
 import { BsPlusCircleFill } from "react-icons/bs";
 import { useEffect, useState } from 'react';
 
-
+// Add date formatting function
+const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return `${date.getMonth() + 1}/${date.getDate()}/${date.getFullYear()}`;
+};
 
 const data = {
     "branches": [
@@ -236,7 +240,22 @@ export default function Graph({ className, setHeader, setInfo, setUnderlineColor
             
     
             while (curr_node) {
-                nodes.push({ position: { x: curr_branch == "branch_main" ? 250 : 150, y: (level * 100) + 75 }, type: 'customNode', id: curr_node_id, data: { id: curr_node._id, label: curr_node?.title, date: curr_node?.created_at, info: curr_node?.description, direction: curr_branch == "branch_main" ? "r" : "l", special: curr_node?.parents?.length > 1 ? "merge" : curr_node?.branch != "branch_main" ? "branch" : null, } })        
+                nodes.push({ 
+                    position: { 
+                        x: curr_branch == "branch_main" ? 250 : 150, 
+                        y: (level * 100) + 75 
+                    }, 
+                    type: 'customNode', 
+                    id: curr_node_id, 
+                    data: { 
+                        id: curr_node._id, 
+                        label: curr_node?.title, 
+                        date: curr_node?.created_at ? formatDate(curr_node.created_at) : undefined,
+                        info: curr_node?.description, 
+                        direction: curr_branch == "branch_main" ? "r" : "l", 
+                        special: curr_node?.parents?.length > 1 ? "merge" : curr_node?.branch != "branch_main" ? "branch" : null, 
+                    } 
+                });        
         
                 // make an edge b/w prev node and this one
                 if (prev_node) {
@@ -301,8 +320,8 @@ export default function Graph({ className, setHeader, setInfo, setUnderlineColor
                     <fieldset className="fieldset">
                         <legend className="fieldset-legend">What happened?</legend>
                         <textarea placeholder="Describe your moment." className="textarea w-full"></textarea>
-                        <legend className="fieldset-legend">When did it happen?</legend>
-                        <input type="date" className="input w-full" placeholder="Type here" />
+                        {/* <legend className="fieldset-legend">When did it happen?</legend>
+                        <input type="date" className="input w-full" placeholder="Type here" /> */}
                         <button className="btn mt-5 bg-accent-content text-base-200">Add your moment</button>
                     </fieldset>
 
