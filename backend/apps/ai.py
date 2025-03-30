@@ -36,10 +36,13 @@ async def generate_nodes(current_user):
         
         # Define the prompt for generating nodes
         prompt = """
-        Generate a list of nodes based on user's emails and calendar events. This structure represents progress over time for a person and the important big events.
-        Returns a simple list of nodes with no complex relationships. Each element of the array/list is a json object which has name, long description, date, and sequential id (index).
-        
-        IMPORTANT: You must include all the existing nodes in your output, and add any new nodes based on recent activity. Here are the existing nodes:
+        Generate a list of nodes of large life events based on user's emails and calendar events. This structure represents progress over time for a person and the important big events.
+        Returns a simple list of nodes with no complex relationships. Each element of the array/list is a json object which has name, long_description, date !!! IMPORTANT DATE MEANS DATE OF EVENT/EMAIL/ACTIVITY/LIFE MOMENT, like when email was sent/event occured!!!, and sequential id (index), placed in cronological order of event date. 
+        Name should be 3 words max (24 chars max)
+
+        There will be lots of junk and spam emails/non important emails, ignore them, and try and add about 1-2 per week
+
+        IMPORTANT: You should include all the existing nodes in your output, and add any new nodes based on recent activity. Although feel free to combine nodes (stay <15ish total) Here are the existing nodes:
         """ + json.dumps(existing_nodes, indent=2)
 
         # Get user's events and emails for the last 30 days
