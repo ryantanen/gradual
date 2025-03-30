@@ -1,16 +1,8 @@
-import ReactFlow, {
-  Background,
-  Controls,
-  PanOnScrollMode,
-  useEdgesState,
-  useNodesState,
-  Position,
-} from "reactflow";
+import ReactFlow, { useEdgesState, useNodesState, Position } from "reactflow";
 import "reactflow/dist/style.css";
 import CustomNode from "./node";
 import CustomLabelTitle from "./labelTitleNode";
 import CustomLabel from "./labelNode";
-import { FaCirclePlus } from "react-icons/fa6";
 import { BsPlusCircleFill } from "react-icons/bs";
 import { useEffect, useState } from "react";
 import { getNodes } from "../../auth/api";
@@ -52,7 +44,7 @@ function fixInvalidJson(invalidJson) {
     // First attempt: Try to parse directly (maybe it's already valid)
     JSON.parse(invalidJson);
     return invalidJson; // Already valid JSON
-  } catch (e) {
+  } catch (_e) {
     // Not valid JSON, continue with fixing process
   }
 
@@ -64,7 +56,7 @@ function fixInvalidJson(invalidJson) {
 
     // Use JSON.stringify to convert it to proper JSON with double quotes
     return JSON.stringify(parsedData, null, 2);
-  } catch (firstError) {
+  } catch (_firstError) {
     // If that didn't work, try more manual approaches
     try {
       // Replace single quotes with double quotes, but be careful about apostrophes
@@ -92,7 +84,7 @@ function fixInvalidJson(invalidJson) {
       // Try to parse the result
       JSON.parse(fixedJson);
       return fixedJson;
-    } catch (secondError) {
+    } catch (_secondError) {
       // Last resort: most aggressive approach
       try {
         // Use a regex to identify each object and fix its properties
@@ -122,8 +114,8 @@ function fixInvalidJson(invalidJson) {
         }
 
         return JSON.stringify(result, null, 2);
-      } catch (finalError) {
-        throw new Error(`Unable to fix invalid JSON: ${finalError.message}`);
+      } catch (_e) {
+        throw new Error(`Unable to fix invalid JSON: ${_e.message}`);
       }
     }
   }
@@ -192,7 +184,6 @@ export default function Graph({
           data: { label: "About you." },
           position: { x: 25, y: 10 },
           type: "customLabelTitle",
-          className: "text-4xl font-medium",
         },
       ];
       console.log("Initial nodes array:", nodes);
@@ -283,7 +274,7 @@ export default function Graph({
   }, [data]);
 
   const onNodeClick = (
-    event: React.MouseEvent,
+    _event: React.MouseEvent,
     node: { id: string; data: NodeData }
   ) => {
     setSelectedNode(node.id);
@@ -348,7 +339,7 @@ export default function Graph({
           },
         }))}
         edges={edges}
-        fitView
+        // fitView
         draggable={false}
         elementsSelectable={false}
         nodesConnectable={false}
