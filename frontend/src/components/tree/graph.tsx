@@ -97,11 +97,14 @@ export default function Graph({
       },
     ];
     let edges = [];
+    
+    console.log(data)
 
     let prev_node = null;
 
     // start w/ main branch
-    let curr_branch = "branch_main";
+    let curr_branch = data.branches.find(branch => branch.name == "branch_main")?._id;
+    const main_branch_id = curr_branch;
     let remaining_branches = data.branches.filter(
       (branch) => branch._id !== "branch_main"
     );
@@ -113,13 +116,14 @@ export default function Graph({
       if (!curr_node_id) break;
 
       let curr_node = data.nodes.find((node) => node._id === curr_node_id);
+      console.log("OTGUH3ouhrghue", curr_node)
       if (!curr_node) break;
 
       prev_node = data.nodes.find((node) => node._id === curr_node.parents[0]);
 
       // Get root node's level
       let level =
-        curr_branch === "branch_main"
+        curr_branch === main_branch_id
           ? 0
           : (nodes.find((n) => n.id === curr_node.parents[0])?.position.y ??
               0 - 75) /
@@ -127,9 +131,10 @@ export default function Graph({
             1;
 
       while (curr_node) {
+        // console.log("ROOT", curr_node)
         nodes.push({
           position: {
-            x: curr_branch === "branch_main" ? 250 : 150,
+            x: curr_branch === main_branch_id ? 250 : 150,
             y: level * 100 + 75,
           },
           type: "customNode",
@@ -139,11 +144,11 @@ export default function Graph({
             label: curr_node.title,
             date: curr_node.created_at,
             info: curr_node.description,
-            direction: curr_branch === "branch_main" ? "r" : "l",
+            direction: curr_branch ===  main_branch_id ? "r" : "l",
             special:
               curr_node.parents.length > 1
                 ? "merge"
-                : curr_node.branch !== "branch_main"
+                : curr_node.branch !== main_branch_id
                 ? "branch"
                 : null,
           } as NodeData,

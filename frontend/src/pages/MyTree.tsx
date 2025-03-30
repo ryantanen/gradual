@@ -24,8 +24,8 @@ function MyTree() {
     //   return response.json();
     // };
 
-    const [bigHeader, setBigHeader] = useState<any>("In summary");
-    const [smallInfo, setSmallInfo] = useState<any>("You, Willard Sun are a guy and that is very cool. You, Willard Sun are a guy and that is very cool. You, Willard Sun are a guy and that is very cool. You, Willard Sun are a guy and that is very cool.");
+    const [bigHeader, setBigHeader] = useState<any>("Explore your life");
+    const [smallInfo, setSmallInfo] = useState<any>("Feel free to click on any moment and learn more about what makes you you.");
     const [underlineColor, setUnderlineColor] = useState<any>("decoration-black-100");
     const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
