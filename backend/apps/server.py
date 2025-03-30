@@ -12,9 +12,10 @@ from datetime import datetime, timedelta
 from bson import ObjectId
 from .db import init_db, users, nodes, branches, User, Node, Branch
 from .email import router as email_router, sync_emails
+from .pdf import router as pdf_router
 from .scheduler import sync_user_data
 from .auth import get_current_user, create_access_token, oauth2_scheme
-from .events import sync_events
+from .events import router as events_router
 from .ai import generate_nodes
 import logging
 
@@ -41,8 +42,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include email router
+# Include routers
 app.include_router(email_router)
+app.include_router(pdf_router)
+app.include_router(events_router)
 
 # Replace these with your own values from the Google Developer Console
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
@@ -166,11 +169,16 @@ async def get_node(node_id: str, current_user: dict = Depends(get_current_user))
 
 @app.post("/add-node")
 async def add_node(node_data: dict, current_user: dict = Depends(get_current_user)):
-    # just push it to the end of main branch latest
-    main_branch = await branches.find_one({"name": "Main Branch"})
+    # Find the main branch using case-insensitive regex
+    main_branch = await branches.find_one({
+        "name": {"$regex": "main", "$options": "i"},
+        "user_id": current_user["_id"]
+    })
+    
     if not main_branch:
         raise HTTPException(status_code=404, detail="Main branch not found")
-        
+    
+    # Create the node
     node = {
         "description": node_data.get("description"),
         "time": datetime.now(),
