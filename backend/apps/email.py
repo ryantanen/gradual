@@ -55,20 +55,27 @@ async def get_user_emails(
         "emails": email_list
     }
 
+@router.get("/count")
+async def count_emails(current_user: dict = Depends(get_current_user)):
+    """Get total count of emails for the user"""
+    user_id = str(current_user["_id"])
+    count = await emails.count_documents({"user_id": user_id})
+    return {"total": count}
+
 @router.get("/{email_id}")
 async def get_email(
     email_id: str,
     current_user: dict = Depends(get_current_user)
 ):
     """Get a specific email by ID"""
-    user_id = current_user["_id"]
+    user_id = str(current_user["_id"])
     
     email = await emails.find_one({
         "_id": ObjectId(email_id),
-        "user_id": user_id
+        # "user_id": user_id
     })
     
     if not email:
         raise HTTPException(status_code=404, detail="Email not found")
-    
-    return email 
+    email["_id"] = str(email["_id"])
+    return email

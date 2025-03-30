@@ -46,6 +46,7 @@ class PDF(BaseMongoModel):
     filename: Optional[str] = None
     title: Optional[str] = None
     content: Optional[str] = None
+    datetime: datetime
     user_id: str
 
 class Photo(BaseMongoModel):
@@ -133,4 +134,3 @@ async def drop_all_collections():
     
     for collection in collections_to_drop:
         await collection.drop()
-

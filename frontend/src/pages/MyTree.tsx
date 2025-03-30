@@ -44,7 +44,7 @@ function MyTree() {
         formData.append('file', selectedFile);
         try {
             const token = await getAccessToken();
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/upload-pdf`, {
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/pdfs/upload-pdf`, {
                 headers: {
                     Authorization: `Bearer ${token}`,
                 },
