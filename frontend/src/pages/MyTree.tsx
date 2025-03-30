@@ -7,8 +7,12 @@ import { IoDocumentTextOutline } from "react-icons/io5";
 import gcal from "../assets/gcal.png";
 import gmail from "../assets/gmail.png";
 import pdf from "../assets/pdfs.png";
+import { useState } from "react";
 
 function MyTree() {
+    const [bigHeader, setBigHeader] = useState<any>("In summary");
+    const [smallInfo, setSmallInfo] = useState<any>("You, Willard Sun are a guy and that is very cool. You, Willard Sun are a guy and that is very cool. You, Willard Sun are a guy and that is very cool. You, Willard Sun are a guy and that is very cool.");
+
     return (
         <>
             <Navbar />
@@ -42,14 +46,14 @@ function MyTree() {
             </dialog>
 
             <div className="h-[calc(100vh-64px)] w-screen flex">
-                <Graph className="flex-7" />
+                <Graph className="flex-7" setHeader={setBigHeader} setInfo={setSmallInfo} />
                 <div className="flex-3 border-l border-gray-300  overflow-y-scroll">
                     <div className="px-6 py-5">
                         <h1 className="text-3xl pb-5 font-semibold">
-                            In summary
+                            {bigHeader}
                         </h1>
                         <p>
-                            You, Willard Sun are a guy and that is very cool. You, Willard Sun are a guy and that is very cool. You, Willard Sun are a guy and that is very cool. You, Willard Sun are a guy and that is very cool.
+                            {smallInfo}
                         </p>
                     </div>
                     <div className="px-6 py-5">

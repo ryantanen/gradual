@@ -5,13 +5,14 @@ import CustomLabelTitle from './labelTitleNode';
 import CustomLabel from './labelNode';
 import { FaCirclePlus } from "react-icons/fa6";
 import { BsPlusCircleFill } from "react-icons/bs";
+import { useState } from 'react';
 
 
 
 
 const nodes = [
     { id: 'title', data: { label: 'About you.' }, position: { x: 25, y: 10 }, type: 'customLabelTitle', className: 'text-4xl font-medium' },
-    { id: '1', data: { label: 'Application', date: "1/2/23", direction: 'r', special: null }, position: { x: 250, y: 75 }, type: 'customNode' },
+    { id: '1', data: { label: 'Application', date: "1/2/23", direction: 'r', special: null }, position: { x: 250, y: 75 }, type: 'customNode', },
     { id: '2', data: { label: 'Interview', date: "2/2/23", direction: 'r', special: null }, position: { x: 250, y: 175 }, type: 'customNode' },
     { id: '3', data: { label: 'Job Acquired', date: "3/2/23", direction: 'r', special: null }, position: { x: 250, y: 275 }, type: 'customNode' },
     { id: '4', data: { label: 'Promotion Already?!?', date: "4/2/23", direction: 'r', special: null }, position: { x: 250, y: 375 }, type: 'customNode' },
@@ -38,10 +39,19 @@ const nodeTypes = {
 
 interface GraphProps {
     className?: string;
+    setHeader: (arg0: string) => void;
+    setInfo: (arg0: string) => void;
 }
 
+export default function Graph({ className, setHeader, setInfo }: GraphProps) {
+    const [selectedNode, setSelectedNode] = useState<string | null>(null);
 
-export default function Graph({ className }: GraphProps) {
+    const onNodeClick = (event: React.MouseEvent, node: any) => {
+        setSelectedNode(node.id);
+        setHeader(node.header);
+        setInfo(node.info);
+    };
+
     return (
         <div className={className + " relative"}>
 
@@ -68,16 +78,15 @@ export default function Graph({ className }: GraphProps) {
             <BsPlusCircleFill
                 onClick={() => document.getElementById('my_modal_2')?.showModal()}
                 color="black"
-                // className="absolute top-4 right-4 w-15 h-15 "
                 className="align-middle absolute top-4 right-4 w-15 h-15 rounded-full flex items-center justify-center text-white hover:fill-gray-700 transition-colors z-10 text-4xl button" 
             />
-{/*             
-            <button
-                onClick={() => document.getElementById('my_modal_2')?.showModal()}
-                className="align-middle absolute top-4 right-4 w-15 h-15 bg-black rounded-full flex items-center justify-center text-white hover:bg-gray-700 transition-colors z-10 text-4xl button">
-                +
-            </button> */}
-            <ReactFlow nodes={nodes} edges={edges}
+            <ReactFlow nodes={nodes.map(node => ({
+                ...node,
+                data: {
+                    ...node.data,
+                    isSelected: node.id === selectedNode
+                }
+            }))} edges={edges}
                 // fitView
                 draggable={false}
                 elementsSelectable={false}
@@ -94,6 +103,7 @@ export default function Graph({ className }: GraphProps) {
                 // panOnDrag={false}
                 // panOnScrollMode={PanOnScrollMode.Vertical}
                 proOptions={{ hideAttribution: true }}
+                onNodeClick={onNodeClick}
                 style={{
                     backgroundImage: "radial-gradient(circle, rgba(81, 119, 255, 0.3) 0%, rgba(255, 255, 255, 0) 70%)"
                 }}
