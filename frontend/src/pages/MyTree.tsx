@@ -4,14 +4,46 @@ import { HiMail } from "react-icons/hi";
 import { BsCalendarEvent } from "react-icons/bs";
 import { IoDocumentTextOutline } from "react-icons/io5";
 
+import gcal from "../assets/gcal.png";
+import gmail from "../assets/gmail.png";
+import pdf from "../assets/pdfs.png";
+
 function MyTree() {
     return (
         <>
             <Navbar />
+
+            <dialog id="my_modal_1" className="modal">
+                <div className="modal-box">
+                    <form method="dialog" className="modal-backdrop">
+                        <button className="btn btn-sm btn-circle absolute right-2 top-2">✕</button>
+                    </form>
+                    <h3 className="font-bold text-xl mb-5">Add a new source.</h3>
+                    <div className="flex flex-wrap gap-3">
+                        <button className="btn btn-outline">
+                            <img src={gcal} className="h-6 w-6" />
+                            Google Calendar
+                        </button>
+                        <button className="btn btn-outline">
+                            <img src={gmail} className="h-6 w-6" />
+                            Gmail
+                        </button>
+                        <button className="btn btn-outline">
+                            <img src={pdf} className="h-6 w-6" />
+                            Add a PDF
+                        </button>
+                    </div>
+
+
+                </div>
+                <form method="dialog" className="modal-backdrop">
+                    <button>close</button>
+                </form>
+            </dialog>
+
             <div className="h-[calc(100vh-64px)] w-screen flex">
                 <Graph className="flex-7" />
-
-                <div className="flex-3 border-l border-gray-300">
+                <div className="flex-3 border-l border-gray-300  overflow-y-scroll">
                     <div className="px-6 py-5">
                         <h1 className="text-3xl pb-5 font-semibold">
                             In summary
@@ -50,6 +82,12 @@ function MyTree() {
                                 </div>
                             </div>
                         </div>
+                        <button className="mt-3 btn btn-outline btn-block p-5"
+                            onClick={() => document.getElementById('my_modal_1')?.showModal()}
+                        >
+                            Add another source
+                        </button>
+
                     </div>
                     <div className="px-6 py-5">
                         <h1 className="text-3xl pb-5 font-semibold">
