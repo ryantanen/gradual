@@ -50,7 +50,7 @@ app.include_router(events_router)
 # Replace these with your own values from the Google Developer Console
 GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET")
-GOOGLE_REDIRECT_URI = "http://localhost:5173/token"
+GOOGLE_REDIRECT_URI = os.getenv("GOOGLE_REDIRECT_URI")
 
 @app.get("/login/google")
 async def login_google():

@@ -42,7 +42,7 @@ async def generate_nodes(current_user):
 
         There will be lots of junk and spam emails/non important emails, ignore them, and try and add about 1-2 per week
 
-        IMPORTANT: You should include all the existing nodes in your output, and add any new nodes based on recent activity. Although feel free to combine nodes (stay <15ish total) Here are the existing nodes:
+        IMPORTANT: You should include all the existing nodes you would like the user to maintain, this is basically a personal diary, in your output, and add any new nodes based on recent activity. Although feel free to combine nodes (stay <15ish total) Here are the existing nodes:
         """ + json.dumps(existing_nodes, indent=2)
 
         # Get user's events and emails for the last 30 days
@@ -97,6 +97,7 @@ async def generate_nodes(current_user):
                 context += f"Content: {email.get('content', 'No content')}\n\n"
         else:
             context += "No recent emails found.\n"
+
 
         # Generate AI response with the context
         response = await generate_ai_response(context, prompt)
